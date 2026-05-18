@@ -160,29 +160,21 @@ function isRenameRequest(text) {
   );
 }
 
-// Isolated API call that extracts only the new title name from a rename message
-async function extractTitleFromMessage(apiKey, userMessage) {
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'llama-3.3-70b-versatile',
-      max_tokens: 30,
-      messages: [
-        {
-          role: 'system',
-          content: 'You extract title names from messages. The user wants to rename their training manual. Reply with ONLY the new title name. No explanation. No punctuation around it. No quotes. Just the title itself.'
-        },
-        { role: 'user', content: userMessage }
-      ]
-    })
-  });
-  if (!response.ok) return null;
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content?.trim() || null;
+// Domain function: ask the chat model to extract a manual title from a rename
+// message. Built on top of groqClient.chat so the prompt lives with the product,
+// not the transport.
+async function extractTitleFromMessage(userMessage) {
+  const content = await groqClient.chat(
+    [
+      {
+        role: 'system',
+        content: 'You extract title names from messages. The user wants to rename their training manual. Reply with ONLY the new title name. No explanation. No punctuation around it. No quotes. Just the title itself.'
+      },
+      { role: 'user', content: userMessage }
+    ],
+    { maxTokens: 30 }
+  );
+  return content.trim();
 }
 
 function getManualTitle() {
@@ -190,6 +182,15 @@ function getManualTitle() {
   const latestManual = Object.values(manualContents).slice(-1)[0] || '';
   return latestManual ? extractManualTitle(latestManual) : 'Untitled Manual';
 }
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// GROQ CLIENT
+// ══════════════════════════════════════════════════════════════════════════════
+// Transport seam for all Groq calls. Implementation lives in groq.js. The key
+// getter is late-bound so the user can update the key in settings mid-session.
+
+const groqClient = new GroqClient(() => getApiKey());
 
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -527,13 +528,12 @@ sendBtn.addEventListener('click', handleSend);
 // ══════════════════════════════════════════════════════════════════════════════
 
 async function handleSend() {
-  const apiKey      = getApiKey();
   const text        = notesEl.value.trim();
   const attachments = [...pendingAttachments];
 
   if (!text && attachments.length === 0) return;
 
-  if (!apiKey) {
+  if (!getApiKey()) {
     addSystemMessage('Please open ⚙ settings and enter your Groq API key.');
     document.getElementById('settings-drawer').classList.add('open');
     document.getElementById('settings-btn').classList.add('active');
@@ -554,7 +554,7 @@ async function handleSend() {
     chatDisplayMessages.push({ role: 'user', content: text, attachments: [] });
     const typingId = addTypingIndicator();
     try {
-      const newTitle = await extractTitleFromMessage(apiKey, text);
+      const newTitle = await extractTitleFromMessage(text);
       if (newTitle) {
         customTitle = newTitle;
         saveCurrentManual();
@@ -634,7 +634,7 @@ Tone: professional but warm and approachable.`
     conversationHistory.push({ role: 'user', content: userContent });
 
     const model  = hasImages ? 'llama-3.2-11b-vision-preview' : 'llama-3.3-70b-versatile';
-    const result = await callGroq(apiKey, conversationHistory, model);
+    const result = await groqClient.chat(conversationHistory, { model });
     conversationHistory.push({ role: 'assistant', content: result });
 
     removeTypingIndicator(typingId);
@@ -659,34 +659,6 @@ Tone: professional but warm and approachable.`
     sendBtn.disabled = false;
     notesEl.focus();
   }
-}
-
-
-// ══════════════════════════════════════════════════════════════════════════════
-// GROQ API
-// ══════════════════════════════════════════════════════════════════════════════
-
-async function callGroq(apiKey, messages, model = 'llama-3.3-70b-versatile') {
-  console.log(`Groq call — model: ${model}, messages: ${messages.length}`);
-
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ model, messages })
-  });
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.error?.message || `Groq error ${response.status}`);
-  }
-
-  const data   = await response.json();
-  const result = data.choices?.[0]?.message?.content;
-  if (!result) throw new Error('No content returned.');
-  return result;
 }
 
 
@@ -1135,30 +1107,17 @@ function toggleRecording() {
         isRecording = false;
         showInlineStatus('Transcribing…', 'teal', null);
 
-        const apiKey = getApiKey();
-        if (!apiKey) {
+        if (!getApiKey()) {
           hideInlineStatus();
           addSystemMessage('Please enter your Groq API key to transcribe.');
           return;
         }
 
         try {
-          const blob     = new Blob(audioChunks, { type: 'audio/webm' });
-          const formData = new FormData();
-          formData.append('file', blob, 'recording.webm');
-          formData.append('model', 'whisper-large-v3-turbo');
-          formData.append('response_format', 'text');
-
-          const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${apiKey}` },
-            body: formData
-          });
-
-          if (!response.ok) throw new Error(`Transcription error ${response.status}`);
-          const transcript = await response.text();
+          const blob       = new Blob(audioChunks, { type: 'audio/webm' });
+          const transcript = await groqClient.transcribe(blob, 'recording.webm');
           const existing   = notesEl.value.trim();
-          notesEl.value    = existing ? existing + '\n\n' + transcript.trim() : transcript.trim();
+          notesEl.value    = existing ? existing + '\n\n' + transcript : transcript;
           resizeTextarea();
         } catch (err) {
           addSystemMessage(`Transcription failed: ${err.message}`);
@@ -1226,8 +1185,7 @@ async function handleImageFile(file) {
 }
 
 async function handleAudioFileUpload(file) {
-  const apiKey = getApiKey();
-  if (!apiKey) {
+  if (!getApiKey()) {
     addSystemMessage('Please enter your Groq API key in ⚙ settings to transcribe audio.');
     document.getElementById('settings-drawer').classList.add('open');
     return;
@@ -1236,26 +1194,14 @@ async function handleAudioFileUpload(file) {
   addSystemMessage(`Transcribing "${file.name}"…`);
 
   try {
-    const formData = new FormData();
-    formData.append('file', file, file.name);
-    formData.append('model', 'whisper-large-v3-turbo');
-    formData.append('response_format', 'text');
-
-    const response = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}` },
-      body: formData
-    });
-
-    if (!response.ok) throw new Error(`Transcription error ${response.status}`);
-    const transcript = await response.text();
+    const transcript = await groqClient.transcribe(file, file.name);
 
     // Remove the "transcribing" system message and add chip instead
     const sysEls = chatInner.querySelectorAll('.system-wrap');
     sysEls[sysEls.length - 1]?.remove();
     chatDisplayMessages.pop();
 
-    addAttachment({ type: 'audio', name: file.name, text: transcript.trim() });
+    addAttachment({ type: 'audio', name: file.name, text: transcript });
   } catch (err) {
     addSystemMessage(`Transcription failed: ${err.message}`);
   }
