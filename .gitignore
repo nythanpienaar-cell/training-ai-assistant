@@ -1,0 +1,16 @@
+# Local Netlify folder
+.netlify
+
+# Claude Code session state
+.claude/
+
+# Windows folder metadata
+desktop.ini
+Thumbs.db
+
+# macOS metadata
+.DS_Store
+
+# Editor / IDE
+.vscode/
+.idea/
