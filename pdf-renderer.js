@@ -16,6 +16,22 @@
     return weight === 'bold' ? 'bold' : 'normal';
   }
 
+  // jsPDF's built-in Helvetica uses WinAnsi encoding, which lacks arrows and a
+  // few other glyphs a manual's text may contain (they otherwise render as
+  // garbage with broken spacing). Map the common offenders to ASCII before any
+  // measuring or drawing. Em dash (—) and middot (·) ARE in WinAnsi — left as is.
+  function sanitize(s) {
+    if (typeof s !== 'string') return s;
+    return s
+      .replace(/→/g, '->').replace(/←/g, '<-').replace(/↔/g, '<->')
+      .replace(/[↑↓]/g, '|')
+      .replace(/[‘’‚]/g, "'").replace(/[“”„]/g, '"')
+      .replace(/…/g, '...')
+      .replace(/[‐-–]/g, '-')             // hyphen/dash variants (— — kept)
+      .replace(/[←-⇿]/g, '->')            // any other arrow
+      .replace(/[∀-⏿①-➿]/g, '-'); // math / technical / dingbats
+  }
+
   function setType(doc, tokens, styleKey, colorHex) {
     const style = tokens.typography[styleKey];
     doc.setFontSize(style.size);
@@ -26,39 +42,71 @@
 
   // ── Cover page ─────────────────────────────────────────────────────────
   function drawCoverPage(doc, manualDoc, tokens) {
-    const pageW  = doc.internal.pageSize.getWidth();
-    const pageH  = doc.internal.pageSize.getHeight();
-    const margin = tokens.spacing.page;
-    const cover  = manualDoc.cover;
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const cover = manualDoc.cover;
+    const black = hexToRgb(tokens.colors.bar);
+    const taupe = hexToRgb(tokens.colors.primary);
 
-    const bandH = pageH * 0.42;
-    doc.setFillColor(...hexToRgb(tokens.colors.primary));
-    doc.rect(0, 0, pageW, bandH, 'F');
+    // Thin outer frame.
+    const inset = 10;
+    doc.setDrawColor(...black);
+    doc.setLineWidth(0.5);
+    doc.rect(inset, inset, pageW - inset * 2, pageH - inset * 2, 'S');
 
-    let y = bandH / 2;
+    // Left-offset taupe title band, with a black tagline sub-band under it.
+    const bandW   = pageW * 0.80;
+    const bandTop = pageH * 0.33;
+    const bandH   = pageH * 0.18;
+    const subH    = cover.tagline ? pageH * 0.06 : 0;
+    const textX   = 24;
+
+    doc.setFillColor(...taupe);
+    doc.rect(0, bandTop, bandW, bandH, 'F');
+    if (subH) {
+      doc.setFillColor(...black);
+      doc.rect(0, bandTop + bandH, bandW, subH, 'F');
+    }
+
+    // Title (wordmark) + "TRAINING MANUAL" eyebrow, black, left-aligned.
     setType(doc, tokens, 'display', tokens.colors.onSurface);
-    const titleLines = doc.splitTextToSize(cover.title || 'Training Manual', pageW - margin * 2);
-    const titleBlockH = titleLines.length * (tokens.typography.display.size * 0.4);
-    y -= titleBlockH / 2;
+    const titleLines = doc.splitTextToSize(cover.title || 'Training Manual', bandW - textX - 8);
+    const lineH = tokens.typography.display.size * 0.42;
+    const blockH = titleLines.length * lineH + tokens.spacing.sm + tokens.typography.eyebrow.size * 0.5;
+    let ty = bandTop + (bandH - blockH) / 2 + lineH * 0.8;
     for (const line of titleLines) {
-      doc.text(line, pageW / 2, y, { align: 'center' });
-      y += tokens.typography.display.size * 0.4;
+      doc.text(line, textX, ty);
+      ty += lineH;
     }
+    setType(doc, tokens, 'eyebrow', tokens.colors.onSurface);
+    doc.text('TRAINING MANUAL', textX, ty + tokens.spacing.xs);
 
+    // Tagline: white italic on the black sub-band, shrunk to fit its width.
     if (cover.tagline) {
-      y += tokens.spacing.md;
-      setType(doc, tokens, 'displaySub', tokens.colors.onSurface);
+      const availW = bandW - textX - tokens.spacing.md;
+      setType(doc, tokens, 'sessionTitle', tokens.colors.onBar);
       doc.setFont('helvetica', 'italic');
-      doc.text(cover.tagline, pageW / 2, y, { align: 'center' });
+      let size = tokens.typography.sessionTitle.size;
+      const tw = doc.getTextWidth(cover.tagline);
+      if (tw > availW) { size = Math.max(9, size * availW / tw); doc.setFontSize(size); }
+      doc.text(cover.tagline, textX, bandTop + bandH + subH / 2 + size * 0.18);
     }
 
-    let belowY = bandH + tokens.spacing['2xl'];
-    if (cover.sessionCount || (cover.descriptors && cover.descriptors.length)) {
-      const parts = [];
-      if (cover.sessionCount) parts.push(`${cover.sessionCount} SESSIONS`);
-      if (cover.descriptors && cover.descriptors.length) parts.push(cover.descriptors.join(' | '));
-      setType(doc, tokens, 'eyebrow', tokens.colors.onSurfaceMuted);
-      doc.text(parts.join('  ·  '), pageW / 2, belowY, { align: 'center' });
+    // Bottom: N SESSIONS (underlined) + descriptor row, centred.
+    let by = pageH * 0.85;
+    if (cover.sessionCount) {
+      setType(doc, tokens, 'eyebrow', tokens.colors.onSurface);
+      const sess = `${cover.sessionCount} SESSIONS`;
+      doc.text(sess, pageW / 2, by, { align: 'center' });
+      const w = doc.getTextWidth(sess);
+      doc.setDrawColor(...black);
+      doc.setLineWidth(0.4);
+      doc.line(pageW / 2 - w / 2, by + 1.6, pageW / 2 + w / 2, by + 1.6);
+      by += tokens.spacing.lg;
+    }
+    if (cover.descriptors && cover.descriptors.length) {
+      setType(doc, tokens, 'eyebrow', tokens.colors.onSurface);
+      doc.text(cover.descriptors.join('  |  '), pageW / 2, by, { align: 'center' });
     }
   }
 
@@ -189,12 +237,18 @@
     ].filter(([, value]) => value);
     if (!rows.length) return y;
 
+    // Place the value column past the widest label so they never overlap.
+    setType(doc, tokens, 'label', tokens.colors.onSurface);
+    let labelColW = 0;
+    for (const [label] of rows) labelColW = Math.max(labelColW, doc.getTextWidth(label));
+    labelColW += tokens.spacing.md;
+
     y += tokens.spacing.sm;
     for (const [label, value] of rows) {
       setType(doc, tokens, 'label', tokens.colors.onSurface);
       doc.text(label, margin, y);
       setType(doc, tokens, 'body', tokens.colors.onSurface);
-      doc.text(value, margin + tokens.spacing['2xl'], y);
+      doc.text(value, margin + labelColW, y);
       y += tokens.spacing.lg;
     }
     return y + tokens.spacing.sm;
@@ -391,13 +445,17 @@
 
   function measureActivityCardHeight(doc, tokens, textW, activity) {
     const innerW = textW - tokens.spacing.md * 2;
-    let h = tokens.spacing.md * 2 + tokens.typography.label.size * 0.45;
-    for (const [, value] of activityRows(activity)) {
+    const lineH  = tokens.typography.body.size * 0.45;
+    let h = tokens.spacing.md * 2 + tokens.typography.label.size * 0.45; // "Activity:" line
+    for (const [label, value] of activityRows(activity)) {
+      setType(doc, tokens, 'label', tokens.colors.onSurface);
+      const labelW = doc.getTextWidth(`${label}: `);
       setType(doc, tokens, 'body', tokens.colors.onSurface);
-      const lines = value.split('\n');
-      for (const line of lines) {
-        const wrapped = doc.splitTextToSize(line, innerW);
-        h += wrapped.length * (tokens.typography.body.size * 0.45);
+      let first = true;
+      for (const seg of String(value).split('\n')) {
+        const wrapped = doc.splitTextToSize(seg, innerW - (first ? labelW : 0));
+        h += wrapped.length * lineH;
+        first = false;
       }
       h += tokens.spacing.xs;
     }
@@ -405,30 +463,37 @@
   }
 
   function drawActivityCard(doc, tokens, activity, y, pageW, margin) {
-    const textW = pageW - margin * 2;
+    const textW  = pageW - margin * 2;
     const innerW = textW - tokens.spacing.md * 2;
-    const cardH = measureActivityCardHeight(doc, tokens, textW, activity);
+    const lineH  = tokens.typography.body.size * 0.45;
+    const cardH  = measureActivityCardHeight(doc, tokens, textW, activity);
 
     doc.setDrawColor(...hexToRgb(tokens.colors.border));
     doc.setLineWidth(0.3);
     doc.roundedRect(margin, y, textW, cardH, tokens.rounded.sm, tokens.rounded.sm, 'S');
 
+    const x = margin + tokens.spacing.md;
     let textY = y + tokens.spacing.md + tokens.typography.label.size * 0.35;
     setType(doc, tokens, 'label', tokens.colors.onSurface);
-    doc.text(`Activity: ${activity.name || ''}`, margin + tokens.spacing.md, textY);
+    doc.text(`Activity: ${activity.name || ''}`, x, textY);
     textY += tokens.typography.label.size * 0.45;
 
+    // Each row draws its bold label and value on the SAME line (value wraps
+    // beneath), so label and value never collide.
     for (const [label, value] of activityRows(activity)) {
+      const labelText = `${label}: `;
       setType(doc, tokens, 'label', tokens.colors.onSurface);
-      doc.text(`${label}:`, margin + tokens.spacing.md, textY);
+      doc.text(labelText, x, textY);
+      const labelW = doc.getTextWidth(labelText);
       setType(doc, tokens, 'body', tokens.colors.onSurface);
-      const lines = value.split('\n');
-      for (const line of lines) {
-        const wrapped = doc.splitTextToSize(line, innerW);
-        for (const wl of wrapped) {
-          textY += tokens.typography.body.size * 0.45;
-          doc.text(wl, margin + tokens.spacing.md, textY);
-        }
+      let first = true;
+      for (const seg of String(value).split('\n')) {
+        const wrapped = doc.splitTextToSize(seg, innerW - (first ? labelW : 0));
+        wrapped.forEach((line, i) => {
+          doc.text(line, (first && i === 0) ? x + labelW : x, textY);
+          textY += lineH;
+        });
+        first = false;
       }
       textY += tokens.spacing.xs;
     }
@@ -567,6 +632,16 @@
   // plain text for anything parseManual didn't structure.
   function renderManualPDF(doc, manualDoc, sessionImages, tokens) {
     tokens = tokens || root.TEMPLATE_DESIGN;
+
+    // Sanitize every string that gets measured or drawn (see sanitize()), so a
+    // glyph jsPDF can't encode never reaches the page or throws off wrapping.
+    const _text = doc.text.bind(doc);
+    doc.text = function (t, ...a) {
+      return _text(Array.isArray(t) ? t.map(sanitize) : sanitize(t), ...a);
+    };
+    const _split = doc.splitTextToSize.bind(doc);
+    doc.splitTextToSize = function (t, ...a) { return _split(sanitize(t), ...a); };
+
     const raw = manualDoc.raw || '';
     const sessions = manualDoc.sessions || [];
 
@@ -575,7 +650,15 @@
     if (sessions.length) {
       const firstSessionMatch = raw.match(/^##\s+SESSION\s+\d+/im);
       let frontMatter = firstSessionMatch ? raw.slice(0, firstSessionMatch.index) : raw;
-      frontMatter = frontMatter.replace(/##\s+HOW THIS TRAINING WORKS[\s\S]*?(?=\n##\s|$)/i, '').trim();
+      // Drop the front matter AND the cover lines (title / tagline / descriptor
+      // row) — those already appear on the cover, so left in they render as a
+      // redundant plain-text page.
+      frontMatter = frontMatter
+        .replace(/##\s+HOW THIS TRAINING WORKS[\s\S]*?(?=\n##\s|$)/i, '')
+        .replace(/^#\s+.*$/m, '')
+        .replace(/^\s*\*[^*]+\*\s*$/m, '')
+        .replace(/^.*\bSESSIONS\b.*$/im, '')
+        .trim();
 
       drawHowItWorks(doc, manualDoc.howItWorks, tokens);
       if (frontMatter) drawFallbackText(doc, frontMatter, tokens, null, true);
