@@ -62,18 +62,109 @@
     }
   }
 
-  // ── Plain-text fallback body (used for anything parseManual hasn't
+  // ── Session opening: section-tag, session-band, theme, overview, purpose ──
+  function drawSessionHeader(doc, session, index, tokens, y, pageW, margin) {
+    const tagH = tokens.typography.eyebrow.size * 0.5 + tokens.spacing.sm * 2;
+    doc.setFillColor(...hexToRgb(tokens.colors.bar));
+    doc.rect(margin, y, pageW - margin * 2, tagH, 'F');
+    setType(doc, tokens, 'eyebrow', tokens.colors.onBar);
+    doc.text(`SESSION ${index + 1}`, margin + tokens.spacing.sm, y + tagH / 2 + tokens.typography.eyebrow.size * 0.18, { align: 'left' });
+    y += tagH;
+
+    const bandH = tokens.typography.sessionTitle.size * 0.5 + tokens.spacing.md * 2;
+    doc.setFillColor(...hexToRgb(tokens.colors.primary));
+    doc.rect(margin, y, pageW - margin * 2, bandH, 'F');
+    setType(doc, tokens, 'sessionTitle', tokens.colors.onPrimary);
+    doc.text(session.name || '', margin + tokens.spacing.sm, y + bandH / 2 + tokens.typography.sessionTitle.size * 0.18, { align: 'left' });
+    y += bandH + tokens.spacing.sm;
+
+    if (session.theme) {
+      setType(doc, tokens, 'caption', tokens.colors.onSurfaceMuted);
+      doc.text(session.theme, margin, y);
+      y += tokens.spacing.lg;
+    } else {
+      y += tokens.spacing.sm;
+    }
+
+    return y;
+  }
+
+  function drawOverview(doc, overview, tokens, y, margin) {
+    if (!overview) return y;
+    const rows = [
+      ['Training Title:', overview.title],
+      ['Theme:', overview.theme],
+      ['Audience:', overview.audience]
+    ].filter(([, value]) => value);
+    if (!rows.length) return y;
+
+    y += tokens.spacing.sm;
+    for (const [label, value] of rows) {
+      setType(doc, tokens, 'label', tokens.colors.onSurface);
+      doc.text(label, margin, y);
+      setType(doc, tokens, 'body', tokens.colors.onSurface);
+      doc.text(value, margin + tokens.spacing['2xl'], y);
+      y += tokens.spacing.lg;
+    }
+    return y + tokens.spacing.sm;
+  }
+
+  function drawPurpose(doc, purpose, tokens, y, pageW, margin) {
+    if (!purpose) return y;
+    const textW = pageW - margin * 2;
+
+    const barH = tokens.typography.calloutHeader.size * 0.5 + tokens.spacing.sm * 2;
+    doc.setFillColor(...hexToRgb(tokens.colors.bar));
+    doc.rect(margin, y, textW, barH, 'F');
+    setType(doc, tokens, 'calloutHeader', tokens.colors.onBar);
+    doc.text('PURPOSE — WHY THIS SESSION EXISTS', margin + tokens.spacing.sm, y + barH / 2 + tokens.typography.calloutHeader.size * 0.18);
+    y += barH;
+
+    setType(doc, tokens, 'body', tokens.colors.onSurface);
+    const wrapped = doc.splitTextToSize(purpose, textW - tokens.spacing.md * 2);
+    const boxH = wrapped.length * (tokens.typography.body.size * 0.45) + tokens.spacing.md * 2;
+    doc.setFillColor(...hexToRgb(tokens.colors.surface));
+    doc.rect(margin, y, textW, boxH, 'F');
+    let textY = y + tokens.spacing.md + tokens.typography.body.size * 0.35;
+    for (const line of wrapped) {
+      doc.text(line, margin + tokens.spacing.md, textY);
+      textY += tokens.typography.body.size * 0.45;
+    }
+    return y + boxH + tokens.spacing.lg;
+  }
+
+  // Draws each parsed session's opening (section-tag, session-band, theme,
+  // Training Overview, Purpose) on its own page.
+  function drawSessions(doc, sessions, tokens) {
+    if (!sessions || !sessions.length) return;
+    const pageW  = doc.internal.pageSize.getWidth();
+    const margin = tokens.spacing.page;
+
+    sessions.forEach((session, i) => {
+      doc.addPage();
+      let y = margin;
+      y = drawSessionHeader(doc, session, i, tokens, y, pageW, margin);
+      y = drawOverview(doc, session.overview, tokens, y, margin);
+      y = drawPurpose(doc, session.purpose, tokens, y, pageW, margin);
+      if (session.remainder) drawFallbackText(doc, session.remainder, tokens, y, false);
+    });
+  }
+
+  // ── Plain-text fallback rendering (used for anything parseManual hasn't
   // structured yet, and for off-template input) ───────────────────────────
-  function drawFallbackBody(doc, manualDoc, tokens) {
+  // `startY`/`newPage` let callers continue on an already-open page (e.g.
+  // a session's remainder, after its structured header/overview/purpose)
+  // instead of always starting fresh.
+  function drawFallbackText(doc, text, tokens, startY, newPage) {
     const pageW  = doc.internal.pageSize.getWidth();
     const pageH  = doc.internal.pageSize.getHeight();
     const margin = tokens.spacing.page;
     const textW  = pageW - margin * 2;
-    let y = margin;
+    let y = startY != null ? startY : margin;
 
-    doc.addPage();
+    if (newPage) doc.addPage();
 
-    const lines = (manualDoc.raw || '').split('\n');
+    const lines = (text || '').split('\n');
     for (const rawLine of lines) {
       const line = rawLine.trim();
       if (!line) { y += tokens.spacing.sm; continue; }
@@ -147,8 +238,20 @@
   // plain text for anything parseManual didn't structure.
   function renderManualPDF(doc, manualDoc, sessionImages, tokens) {
     tokens = tokens || root.TEMPLATE_DESIGN;
+    const raw = manualDoc.raw || '';
+    const sessions = manualDoc.sessions || [];
+
     drawCoverPage(doc, manualDoc, tokens);
-    drawFallbackBody(doc, manualDoc, tokens);
+
+    if (sessions.length) {
+      const firstSessionMatch = raw.match(/^##\s+SESSION\s+\d+/im);
+      const frontMatter = firstSessionMatch ? raw.slice(0, firstSessionMatch.index) : raw;
+      if (frontMatter.trim()) drawFallbackText(doc, frontMatter, tokens, null, true);
+      drawSessions(doc, sessions, tokens);
+    } else {
+      drawFallbackText(doc, raw, tokens, null, true);
+    }
+
     drawImages(doc, sessionImages, tokens);
     drawPageNumbers(doc, tokens);
   }

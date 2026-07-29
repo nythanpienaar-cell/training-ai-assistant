@@ -206,10 +206,76 @@ Tone: professional but warm and approachable.`;
       }
     }
 
+    const sessions = parseSessions(text);
+
     return {
       cover: { title, tagline, sessionCount, descriptors },
+      sessions,
       raw: text
     };
+  }
+
+  // Splits the manual on "## SESSION N — Name" headings and pulls each
+  // session's theme, Training Overview rows, and Purpose body out of its
+  // slice of the source markdown. Missing parts parse to empty/null rather
+  // than throwing, so an incomplete or hand-edited manual still renders.
+  function parseSessions(text) {
+    const headingRe = /^##\s+SESSION\s+\d+\s*[—\-]\s*(.+)$/gim;
+    const matches = [...text.matchAll(headingRe)];
+
+    return matches.map((match, i) => {
+      const name = match[1].trim();
+      const start = match.index + match[0].length;
+      const end = i + 1 < matches.length ? matches[i + 1].index : text.length;
+      const body = text.slice(start, end);
+
+      return {
+        name,
+        theme: extractTheme(body),
+        overview: extractOverview(body),
+        purpose: extractPurpose(body),
+        // Whatever this ticket doesn't structure yet (framework, activities,
+        // final activation) so the renderer can still show it as plain text.
+        remainder: stripStructuredParts(body)
+      };
+    });
+  }
+
+  function stripStructuredParts(body) {
+    return body
+      .replace(/^\*[^*]+\*$/m, '')
+      .replace(/###\s+TRAINING OVERVIEW[\s\S]*?(?=\n###|$)/i, '')
+      .replace(/###\s+PURPOSE[^\n]*\n[\s\S]*?(?=\n###|$)/i, '')
+      .trim();
+  }
+
+  function extractTheme(body) {
+    const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
+    const taglineLine = lines.find(l => /^\*[^*]+\*$/.test(l));
+    return taglineLine ? taglineLine.replace(/^\*|\*$/g, '').trim() : null;
+  }
+
+  function extractOverviewField(body, label) {
+    const re = new RegExp(`\\*\\*${label}:\\*\\*\\s*(.+)`, 'i');
+    const match = body.match(re);
+    return match ? match[1].trim() : null;
+  }
+
+  function extractOverview(body) {
+    const sectionMatch = body.match(/###\s+TRAINING OVERVIEW([\s\S]*?)(?=\n###|$)/i);
+    const section = sectionMatch ? sectionMatch[1] : '';
+    return {
+      title:    extractOverviewField(section, 'Training Title'),
+      theme:    extractOverviewField(section, 'Theme'),
+      audience: extractOverviewField(section, 'Audience')
+    };
+  }
+
+  function extractPurpose(body) {
+    const sectionMatch = body.match(/###\s+PURPOSE[^\n]*\n([\s\S]*?)(?=\n###|$)/i);
+    if (!sectionMatch) return null;
+    const purpose = sectionMatch[1].trim();
+    return purpose || null;
   }
 
   root.REFRESH_TEMPLATE_SPEC   = REFRESH_TEMPLATE_SPEC;
