@@ -423,11 +423,18 @@
   function drawFramework(doc, framework, tokens, y, pageW, pageH, margin) {
     if (!framework || !framework.length) return y;
 
+    const textW = pageW - margin * 2 - tokens.spacing['2xl'] - tokens.spacing.md * 2;
+    // Keep the "SESSION FRAMEWORK" heading with its first step.
+    const firstStepH = measureFrameworkStepHeight(doc, tokens, textW, framework[0]);
+    if (y + tokens.spacing.lg + firstStepH > pageH - margin) {
+      doc.addPage();
+      y = margin;
+    }
+
     setType(doc, tokens, 'sectionHeader', tokens.colors.onSurface);
     doc.text('SESSION FRAMEWORK', margin, y);
     y += tokens.spacing.lg;
 
-    const textW = pageW - margin * 2 - tokens.spacing['2xl'] - tokens.spacing.md * 2;
     for (const step of framework) {
       const stepH = measureFrameworkStepHeight(doc, tokens, textW, step);
       if (y + stepH > pageH - margin) {
@@ -506,11 +513,19 @@
   function drawActivities(doc, activities, tokens, y, pageW, pageH, margin) {
     if (!activities || !activities.length) return y;
 
+    const textW = pageW - margin * 2;
+    // Keep the "ACTIVITY DESIGN" heading with its first card — never leave the
+    // heading stranded at the bottom of a page with the card on the next.
+    const firstCardH = measureActivityCardHeight(doc, tokens, textW, activities[0]);
+    if (y + tokens.spacing.lg + firstCardH > pageH - margin) {
+      doc.addPage();
+      y = margin;
+    }
+
     setType(doc, tokens, 'sectionHeader', tokens.colors.onSurface);
     doc.text('ACTIVITY DESIGN', margin, y);
     y += tokens.spacing.lg;
 
-    const textW = pageW - margin * 2;
     for (const activity of activities) {
       const cardH = measureActivityCardHeight(doc, tokens, textW, activity);
       if (y + cardH > pageH - margin) {
