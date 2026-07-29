@@ -4,6 +4,9 @@
 # Claude Code session state
 .claude/
 
+# Ralph loop state (progress notes + per-iteration session logs)
+.ralph/
+
 # Windows folder metadata
 desktop.ini
 Thumbs.db

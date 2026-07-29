@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Project 54 Training Manual — Design System</title>
+<style>
+  :root {
+    /* Colors */
+    --color-primary: #A6A096;
+    --color-on-primary: #FFFFFF;
+    --color-surface: #FFFFFF;
+    --color-surface-subtle: #FAF8F3;
+    --color-on-surface: #000000;
+    --color-on-surface-muted: #555555;
+    --color-bar: #000000;
+    --color-on-bar: #FFFFFF;
+    --color-accent: #1F3864;
+    --color-accent-muted: #9EA5B0;
+    --color-know: #D6E4F0;
+    --color-do: #C4D4BE;
+    --color-become: #F4E5C8;
+    --color-highlight: #DBCCA6;
+    --color-border: #EAEAEA;
+
+    /* Typography */
+    --font: Helvetica, Arial, sans-serif;
+    --type-display-size: 48px;      --type-display-weight: 700;      --type-display-lh: 1.05;  --type-display-ls: -0.01em;
+    --type-display-sub-size: 32px;  --type-display-sub-weight: 700;  --type-display-sub-lh: 1.1;   --type-display-sub-ls: 0em;
+    --type-session-title-size: 26px;--type-session-title-weight: 700;--type-session-title-lh: 1.15;--type-session-title-ls: 0em;
+    --type-section-header-size: 16px;--type-section-header-weight: 700;--type-section-header-lh: 1.2;--type-section-header-ls: 0.04em;
+    --type-callout-header-size: 12px;--type-callout-header-weight: 700;--type-callout-header-lh: 1.2;--type-callout-header-ls: 0.06em;
+    --type-label-size: 12px;        --type-label-weight: 700;        --type-label-lh: 1.3;   --type-label-ls: 0em;
+    --type-body-size: 14px;         --type-body-weight: 400;         --type-body-lh: 1.5;    --type-body-ls: 0em;
+    --type-caption-size: 11px;      --type-caption-weight: 400;      --type-caption-lh: 1.4; --type-caption-ls: 0em;
+    --type-eyebrow-size: 11px;      --type-eyebrow-weight: 700;      --type-eyebrow-lh: 1.2; --type-eyebrow-ls: 0.15em;
+
+    /* Rounded */
+    --rounded-none: 0px;
+    --rounded-sm: 2px;
+
+    /* Spacing */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 24px;
+    --space-2xl: 32px;
+    --space-page: 48px;
+
+    /* Page chrome (neutral, not part of the system) */
+    --chrome-bg: #f5f5f4;
+    --chrome-panel: #ffffff;
+    --chrome-ink: #1a1a1a;
+    --chrome-muted: #6b6b6b;
+    --chrome-line: #e2e2e0;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--chrome-bg);
+    color: var(--chrome-ink);
+    font-family: var(--font);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: var(--space-2xl) var(--space-xl) 96px; }
+
+  header.page-head { margin-bottom: var(--space-2xl); }
+  header.page-head h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header.page-head p { color: var(--chrome-muted); margin: 0; max-width: 62ch; }
+  header.page-head .mirror-note {
+    margin-top: var(--space-md);
+    font-size: 13px;
+    color: var(--chrome-muted);
+    border-left: 3px solid var(--color-primary);
+    padding-left: var(--space-md);
+  }
+  code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.85em; }
+
+  section.block { background: var(--chrome-panel); border: 1px solid var(--chrome-line); border-radius: 8px; padding: var(--space-xl); margin-bottom: var(--space-lg); }
+  section.block > h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--chrome-muted); margin: 0 0 var(--space-lg); }
+
+  /* ---- Colors ---- */
+  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-md); }
+  .swatch { border: 1px solid var(--chrome-line); border-radius: 6px; overflow: hidden; }
+  .swatch .chip { height: 76px; display: flex; align-items: flex-end; padding: var(--space-sm); }
+  .swatch .chip span { font-size: 12px; font-weight: 600; }
+  .swatch .meta { padding: var(--space-sm) var(--space-md); }
+  .swatch .meta .name { font-size: 13px; font-weight: 600; }
+  .swatch .meta .hex { font-size: 12px; color: var(--chrome-muted); }
+  .group-label { grid-column: 1 / -1; font-size: 12px; font-weight: 700; color: var(--chrome-muted); margin-top: var(--space-sm); }
+
+  /* ---- Typography specimens ---- */
+  .spec { display: grid; grid-template-columns: 1fr 220px; gap: var(--space-lg); align-items: baseline; padding: var(--space-md) 0; border-top: 1px solid var(--chrome-line); }
+  .spec:first-of-type { border-top: 0; }
+  .spec .demo { color: var(--color-on-surface); overflow: hidden; }
+  .spec .info { font-size: 12px; color: var(--chrome-muted); }
+  .spec .info b { color: var(--chrome-ink); font-weight: 600; }
+
+  /* ---- Spacing ---- */
+  .space-row { display: flex; align-items: center; gap: var(--space-md); padding: 6px 0; }
+  .space-row .bar { background: var(--color-primary); height: 16px; border-radius: 2px; }
+  .space-row .lbl { font-size: 12px; color: var(--chrome-muted); }
+
+  /* ---- Radius ---- */
+  .radius-row { display: flex; gap: var(--space-xl); flex-wrap: wrap; }
+  .radius-item { text-align: center; }
+  .radius-item .box { width: 96px; height: 64px; background: var(--color-surface-subtle); border: 1px solid var(--color-border); }
+  .radius-item .lbl { font-size: 12px; color: var(--chrome-muted); margin-top: 6px; }
+
+  /* ---- Elevation ---- */
+  .elev-row { display: flex; gap: var(--space-xl); flex-wrap: wrap; }
+  .elev-item .box { width: 150px; height: 84px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--rounded-sm); display: flex; align-items: center; justify-content: center; font-size: 12px; color: var(--chrome-muted); }
+  .elev-item .lbl { font-size: 12px; color: var(--chrome-muted); margin-top: 6px; }
+
+  /* ---- Components (rendered from tokens) ---- */
+  .comp { margin-bottom: var(--space-xl); }
+  .comp > .comp-name { font-size: 12px; color: var(--chrome-muted); margin-bottom: var(--space-sm); }
+  .stage { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--rounded-sm); padding: var(--space-lg); }
+
+  .c-cover-band {
+    background: var(--color-primary); color: var(--color-on-surface);
+    padding: var(--space-xl);
+    font-size: var(--type-display-size); font-weight: var(--type-display-weight);
+    line-height: var(--type-display-lh); letter-spacing: var(--type-display-ls);
+    border-radius: var(--rounded-none);
+  }
+  .c-cover-band .sub { font-size: var(--type-display-sub-size); font-weight: var(--type-display-sub-weight); letter-spacing: var(--type-display-sub-ls); }
+
+  .c-section-tag {
+    background: var(--color-bar); color: var(--color-on-bar);
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--type-eyebrow-size); font-weight: var(--type-eyebrow-weight); letter-spacing: var(--type-eyebrow-ls);
+    text-transform: uppercase; border-radius: var(--rounded-none);
+  }
+  .c-session-band {
+    background: var(--color-primary); color: var(--color-on-primary);
+    padding: var(--space-md); border-radius: var(--rounded-none);
+    font-size: var(--type-session-title-size); font-weight: var(--type-session-title-weight);
+    line-height: var(--type-session-title-lh);
+  }
+  .c-section-header {
+    color: var(--color-on-surface);
+    font-size: var(--type-section-header-size); font-weight: var(--type-section-header-weight);
+    letter-spacing: var(--type-section-header-ls); text-transform: uppercase;
+    border-bottom: 2px solid var(--color-border); padding-bottom: var(--space-xs);
+  }
+  .c-callout-bar {
+    background: var(--color-bar); color: var(--color-on-bar);
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--type-callout-header-size); font-weight: var(--type-callout-header-weight);
+    letter-spacing: var(--type-callout-header-ls); text-transform: uppercase; border-radius: var(--rounded-none);
+  }
+  .c-callout-box {
+    background: var(--color-surface); color: var(--color-on-surface);
+    border: 1px solid var(--color-border); border-top: 0;
+    padding: var(--space-md);
+    font-size: var(--type-body-size); line-height: var(--type-body-lh);
+  }
+  .triad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+  .outcome { padding: var(--space-md); color: var(--color-on-surface); font-size: var(--type-body-size); line-height: var(--type-body-lh); }
+  .outcome .lbl { display: block; font-size: var(--type-label-size); font-weight: var(--type-label-weight); margin-bottom: var(--space-sm); }
+  .outcome ul { margin: 0; padding-left: 18px; }
+  .c-outcome-know { background: var(--color-know); }
+  .c-outcome-do { background: var(--color-do); }
+  .c-outcome-become { background: var(--color-become); }
+
+  .c-goal-callout {
+    background: var(--color-surface); color: var(--color-on-surface);
+    border: 1px solid var(--color-highlight); border-left: 4px solid var(--color-highlight);
+    border-radius: var(--rounded-sm); padding: var(--space-md);
+    font-size: var(--type-body-size); line-height: var(--type-body-lh);
+  }
+  .c-goal-callout .lbl { font-size: var(--type-label-size); font-weight: var(--type-label-weight); display: block; margin-bottom: 6px; }
+
+  .c-framework-step { display: flex; gap: var(--space-md); border: 1px solid var(--color-border); border-radius: var(--rounded-sm); padding: var(--space-md); }
+  .c-framework-step .num { background: var(--color-bar); color: var(--color-on-bar); width: 34px; height: 34px; flex: 0 0 34px; display: flex; align-items: center; justify-content: center; font-weight: 700; border-radius: var(--rounded-none); }
+  .c-framework-step .body { font-size: var(--type-body-size); line-height: var(--type-body-lh); }
+  .c-framework-step .body .title { font-weight: 700; }
+  .c-framework-step .body ul { margin: 4px 0 0; padding-left: 18px; }
+
+  .c-activity-card { border: 1px solid var(--color-border); border-radius: var(--rounded-sm); overflow: hidden; }
+  .c-activity-card .row { padding: var(--space-md); border-top: 1px solid var(--color-border); font-size: var(--type-body-size); line-height: var(--type-body-lh); }
+  .c-activity-card .row:first-child { border-top: 0; font-weight: 700; }
+  .c-activity-card .row b { font-weight: 700; }
+
+  .c-overview-row { display: grid; grid-template-columns: 160px 1fr; gap: var(--space-md); padding: var(--space-xs) 0; font-size: var(--type-body-size); line-height: var(--type-body-lh); border-bottom: 1px solid var(--color-border); }
+  .c-overview-row b { font-weight: 700; }
+
+  /* ---- Do / Don't ---- */
+  .dodont { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-lg); }
+  .dodont ul { list-style: none; margin: 0; padding: 0; }
+  .dodont li { padding: 6px 0 6px 24px; position: relative; font-size: 14px; }
+  .dodont .do li::before { content: "✓"; position: absolute; left: 0; color: #2e7d32; font-weight: 700; }
+  .dodont .dont li::before { content: "✗"; position: absolute; left: 0; color: #b3261e; font-weight: 700; }
+  .dodont h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--chrome-muted); margin: 0 0 var(--space-sm); }
+  @media (max-width: 720px) { .dodont, .spec { grid-template-columns: 1fr; } .triad { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <h1>Project 54 Training Manual — Design System</h1>
+    <p>The faithful visual system of the REFRESH training-manual template — a restrained, print-first document design for Project 54 training manuals.</p>
+    <div class="mirror-note">This page is the human-readable mirror of <code>docs/design.md</code>. Every swatch, specimen, and component below is styled from the exact token values in that file. <code>design.md</code> is the source of truth.</div>
+  </header>
+
+  <!-- COLORS -->
+  <section class="block">
+    <h2>Colors</h2>
+    <div class="swatch-grid">
+      <div class="group-label">Brand &amp; surfaces</div>
+      <div class="swatch"><div class="chip" style="background:var(--color-primary);color:var(--color-on-primary)"><span>on-primary</span></div><div class="meta"><div class="name">primary</div><div class="hex">#A6A096</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--color-surface);color:var(--color-on-surface);border-bottom:1px solid var(--chrome-line)"><span>on-surface</span></div><div class="meta"><div class="name">surface</div><div class="hex">#FFFFFF</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--color-surface-subtle);color:var(--color-on-surface)"><span>subtle tint</span></div><div class="meta"><div class="name">surface-subtle</div><div class="hex">#FAF8F3</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--color-bar);color:var(--color-on-bar)"><span>on-bar</span></div><div class="meta"><div class="name">bar</div><div class="hex">#000000</div></div></div>
+
+      <div class="group-label">Text</div>
+      <div class="swatch"><div class="chip" style="background:var(--color-surface);color:var(--color-on-surface);border-bottom:1px solid var(--chrome-line)"><span>The quick brown fox</span></div><div class="meta"><div class="name">on-surface</div><div class="hex">#000000</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--color-surface);color:var(--color-on-surface-muted);border-bottom:1px solid var(--chrome-line)"><span>The quick brown fox</span></div><div class="meta"><div class="name">on-surface-muted</div><div class="hex">#555555</div></div></div>
+
+      <div class="group-label">Accent</div>
+      <div class="swatch"><div class="chip" style="background:var(--color-accent);color:#fff"><span>navy</span></div><div class="meta"><div class="name">accent</div><div class="hex">#1F3864</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--color-accent-muted);color:#fff"><span>hairline</span></div><div class="meta"><div class="name">accent-muted</div><div class="hex">#9EA5B0</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--color-highlight);color:var(--color-on-surface)"><span>goal border</span></div><div class="meta"><div class="name">highlight</div><div class="hex">#DBCCA6</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--color-border);color:var(--color-on-surface)"><span>hairline</span></div><div class="meta"><div class="name">border</div><div class="hex">#EAEAEA</div></div></div>
+
+      <div class="group-label">Learning-outcome triad (KNOW / DO / BECOME) — always with text labels</div>
+      <div class="swatch"><div class="chip" style="background:var(--color-know);color:var(--color-on-surface)"><span>KNOW (Head)</span></div><div class="meta"><div class="name">know</div><div class="hex">#D6E4F0</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--color-do);color:var(--color-on-surface)"><span>DO (Hands)</span></div><div class="meta"><div class="name">do</div><div class="hex">#C4D4BE</div></div></div>
+      <div class="swatch"><div class="chip" style="background:var(--color-become);color:var(--color-on-surface)"><span>BECOME (Heart)</span></div><div class="meta"><div class="name">become</div><div class="hex">#F4E5C8</div></div></div>
+    </div>
+  </section>
+
+  <!-- TYPOGRAPHY -->
+  <section class="block">
+    <h2>Typography — Helvetica / Arial</h2>
+    <div class="spec"><div class="demo" style="font-size:var(--type-display-size);font-weight:var(--type-display-weight);line-height:var(--type-display-lh);letter-spacing:var(--type-display-ls)">REFRESH</div><div class="info"><b>display</b><br>48px · 700 · lh 1.05 · ls -0.01em<br>cover wordmark</div></div>
+    <div class="spec"><div class="demo" style="font-size:var(--type-display-sub-size);font-weight:var(--type-display-sub-weight);line-height:var(--type-display-sub-lh)">TRAINING MANUAL</div><div class="info"><b>display-sub</b><br>32px · 700 · lh 1.1<br>cover subtitle</div></div>
+    <div class="spec"><div class="demo" style="font-size:var(--type-session-title-size);font-weight:var(--type-session-title-weight);line-height:var(--type-session-title-lh)">Bigger Picture</div><div class="info"><b>session-title</b><br>26px · 700 · lh 1.15<br>session band name</div></div>
+    <div class="spec"><div class="demo" style="font-size:var(--type-section-header-size);font-weight:var(--type-section-header-weight);letter-spacing:var(--type-section-header-ls);text-transform:uppercase">Training Overview</div><div class="info"><b>section-header</b><br>16px · 700 · ls 0.04em · uppercase<br>section titles</div></div>
+    <div class="spec"><div class="demo" style="font-size:var(--type-callout-header-size);font-weight:var(--type-callout-header-weight);letter-spacing:var(--type-callout-header-ls);text-transform:uppercase">Purpose — Why This Session Exists</div><div class="info"><b>callout-header</b><br>12px · 700 · ls 0.06em · uppercase<br>white-on-black bar</div></div>
+    <div class="spec"><div class="demo" style="font-size:var(--type-label-size);font-weight:var(--type-label-weight)">KNOW (Head)</div><div class="info"><b>label</b><br>12px · 700<br>outcome-block headings</div></div>
+    <div class="spec"><div class="demo" style="font-size:var(--type-body-size);font-weight:var(--type-body-weight);line-height:var(--type-body-lh)">To introduce participants to the beginning of the story, revealing who God is and why He created humanity.</div><div class="info"><b>body</b><br>14px · 400 · lh 1.5<br>reading text</div></div>
+    <div class="spec"><div class="demo" style="font-size:var(--type-caption-size);font-weight:var(--type-caption-weight);line-height:var(--type-caption-lh);color:var(--color-on-surface-muted)">The Beginning of the Biblical Story</div><div class="info"><b>caption</b><br>11px · 400 · muted<br>subtitles / themes</div></div>
+    <div class="spec"><div class="demo" style="font-size:var(--type-eyebrow-size);font-weight:var(--type-eyebrow-weight);letter-spacing:var(--type-eyebrow-ls);text-transform:uppercase">Session 1</div><div class="info"><b>eyebrow</b><br>11px · 700 · ls 0.15em · uppercase<br>tags &amp; descriptors</div></div>
+  </section>
+
+  <!-- SPACING -->
+  <section class="block">
+    <h2>Spacing — 4 / 8 / 12 / 16 / 24 / 32</h2>
+    <div class="space-row"><div class="bar" style="width:var(--space-xs)"></div><div class="lbl">xs · 4px</div></div>
+    <div class="space-row"><div class="bar" style="width:var(--space-sm)"></div><div class="lbl">sm · 8px</div></div>
+    <div class="space-row"><div class="bar" style="width:var(--space-md)"></div><div class="lbl">md · 12px · default box padding</div></div>
+    <div class="space-row"><div class="bar" style="width:var(--space-lg)"></div><div class="lbl">lg · 16px</div></div>
+    <div class="space-row"><div class="bar" style="width:var(--space-xl)"></div><div class="lbl">xl · 24px</div></div>
+    <div class="space-row"><div class="bar" style="width:var(--space-2xl)"></div><div class="lbl">2xl · 32px</div></div>
+    <div class="space-row"><div class="bar" style="width:var(--space-page)"></div><div class="lbl">page · 48px · page margin</div></div>
+  </section>
+
+  <!-- RADIUS -->
+  <section class="block">
+    <h2>Radius — near-sharp</h2>
+    <div class="radius-row">
+      <div class="radius-item"><div class="box" style="border-radius:var(--rounded-none)"></div><div class="lbl">none · 0px<br>bands, bars, blocks</div></div>
+      <div class="radius-item"><div class="box" style="border-radius:var(--rounded-sm)"></div><div class="lbl">sm · 2px<br>cards, callouts</div></div>
+    </div>
+  </section>
+
+  <!-- ELEVATION -->
+  <section class="block">
+    <h2>Elevation &amp; Depth — flat</h2>
+    <div class="elev-row">
+      <div class="elev-item"><div class="box">solid fill</div><div class="lbl">taupe / black / pastel blocks</div></div>
+      <div class="elev-item"><div class="box">hairline border</div><div class="lbl">cards — 1px #EAEAEA</div></div>
+    </div>
+    <p style="color:var(--chrome-muted);font-size:13px;margin:var(--space-lg) 0 0">No drop shadows anywhere. Separation comes from fills and hairline borders — a deliberate print choice.</p>
+  </section>
+
+  <!-- COMPONENTS -->
+  <section class="block">
+    <h2>Components</h2>
+
+    <div class="comp"><div class="comp-name">cover-band + display / display-sub</div>
+      <div class="stage" style="background:#fff">
+        <div class="c-cover-band">REFRESH<div class="sub">TRAINING MANUAL</div></div>
+      </div>
+    </div>
+
+    <div class="comp"><div class="comp-name">section-tag + session-band</div>
+      <div class="stage" style="background:#fff">
+        <div class="c-section-tag">Session 1</div>
+        <div class="c-session-band">Bigger Picture</div>
+      </div>
+    </div>
+
+    <div class="comp"><div class="comp-name">section-header</div>
+      <div class="stage" style="background:#fff">
+        <div class="c-section-header">Training Overview</div>
+      </div>
+    </div>
+
+    <div class="comp"><div class="comp-name">overview-row</div>
+      <div class="stage" style="background:#fff">
+        <div class="c-overview-row"><b>Training Title:</b><span>Refresh Discipleship Training</span></div>
+        <div class="c-overview-row"><b>Theme:</b><span>The Beginning of the Biblical Story</span></div>
+        <div class="c-overview-row" style="border-bottom:0"><b>Audience:</b><span>Oral learners / mixed literacy</span></div>
+      </div>
+    </div>
+
+    <div class="comp"><div class="comp-name">callout-bar + callout-box</div>
+      <div class="stage" style="background:#fff">
+        <div class="c-callout-bar">Purpose — Why This Session Exists</div>
+        <div class="c-callout-box">To introduce participants to the beginning of the story, revealing who God is, why He created humanity, and how relationship and authority were established from the start.</div>
+      </div>
+    </div>
+
+    <div class="comp"><div class="comp-name">outcome-know / outcome-do / outcome-become</div>
+      <div class="stage" style="background:#fff;padding:0">
+        <div class="triad">
+          <div class="outcome c-outcome-know"><span class="lbl">KNOW (Head)</span><ul><li>Understand who God is</li><li>Recognise humanity's purpose</li></ul></div>
+          <div class="outcome c-outcome-do"><span class="lbl">DO (Hands)</span><ul><li>Discuss God's attributes</li><li>Engage the roleplay</li></ul></div>
+          <div class="outcome c-outcome-become"><span class="lbl">BECOME (Heart)</span><ul><li>See themselves as created</li><li>Grasp stewardship</li></ul></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp"><div class="comp-name">goal-callout</div>
+      <div class="stage" style="background:#fff">
+        <div class="c-goal-callout"><span class="lbl">Transformation Goal</span>Participants begin to see themselves as vessels created by God, with value rooted in their Creator — not their achievements.</div>
+      </div>
+    </div>
+
+    <div class="comp"><div class="comp-name">framework-step</div>
+      <div class="stage" style="background:#fff">
+        <div class="c-framework-step">
+          <div class="num">4</div>
+          <div class="body"><div class="title">Reveal Truth — Short Teaching</div>
+            <ul><li>Key Truth: God exists outside of time.</li><li>Keep SHORT — oral culture retains short, repeated truth.</li></ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp"><div class="comp-name">activity-card</div>
+      <div class="stage" style="background:#fff">
+        <div class="c-activity-card">
+          <div class="row">Activity: Vessels — 500ml Coke Bottle</div>
+          <div class="row"><b>Goal:</b> Help participants understand that value comes from the Creator, not condition.</div>
+          <div class="row"><b>Type:</b> Object lesson</div>
+          <div class="row"><b>Materials:</b> 500ml bottle of Coke</div>
+          <div class="row"><b>Teaching Point:</b> Humans are vessels. Value comes from the Creator, not condition.</div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- DO / DON'T -->
+  <section class="block">
+    <h2>Do's and Don'ts</h2>
+    <div class="dodont">
+      <div class="do">
+        <h3>Do</h3>
+        <ul>
+          <li>Use only Helvetica/Arial — the template font — at every size and weight.</li>
+          <li>Keep the exact taupe/black/white palette and the KNOW/DO/BECOME triad.</li>
+          <li>Always pair each learning-outcome colour with its text label so it reads in B&amp;W.</li>
+          <li>Preserve the calm, one-idea-per-block layout with generous margins.</li>
+          <li>Keep surfaces flat: solid fills and hairline borders.</li>
+        </ul>
+      </div>
+      <div class="dont">
+        <h3>Don't</h3>
+        <ul>
+          <li>Don't swap, mix, or add typefaces — no script, handwriting, or trendy display fonts.</li>
+          <li>Don't recolour or restyle away from the sampled template palette.</li>
+          <li>Don't rely on colour alone to convey meaning (must survive a B&amp;W copier).</li>
+          <li>Don't crowd the page or stack blocks without breathing room.</li>
+          <li>Don't add drop shadows, gradients, or corners beyond 2px.</li>
+          <li>Don't drift from the template layout — same components, same order.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>
