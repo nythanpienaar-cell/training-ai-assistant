@@ -371,45 +371,53 @@
 
   // ── Session Framework (numbered steps, black number square) ──────────────
   function measureFrameworkStepHeight(doc, tokens, textW, step) {
+    const pad = tokens.spacing.md;
     setType(doc, tokens, 'sectionHeader', tokens.colors.onSurface);
     const titleLines = doc.splitTextToSize(step.title || '', textW);
-    let h = Math.max(titleLines.length * (tokens.typography.sectionHeader.size * 0.45), tokens.spacing.xl);
+    let contentH = titleLines.length * (tokens.typography.sectionHeader.size * 0.45);
     setType(doc, tokens, 'body', tokens.colors.onSurface);
     for (const bullet of step.bullets || []) {
-      const wrapped = doc.splitTextToSize(`• ${bullet}`, textW - tokens.spacing.md);
-      h += wrapped.length * (tokens.typography.body.size * 0.45);
+      const wrapped = doc.splitTextToSize(`• ${bullet}`, textW);
+      contentH += wrapped.length * (tokens.typography.body.size * 0.45);
     }
-    return h + tokens.spacing.md;
+    // Full box height (content + padding), never shorter than the number column.
+    return Math.max(contentH + pad * 2, tokens.spacing['2xl']);
   }
 
   function drawFrameworkStep(doc, tokens, step, y, pageW, margin) {
-    const squareSize = tokens.spacing.xl;
-    const textX = margin + squareSize + tokens.spacing.sm;
-    const textW = pageW - margin * 2 - squareSize - tokens.spacing.sm;
+    const pad   = tokens.spacing.md;
+    const numW  = tokens.spacing['2xl'];               // full-height black column
+    const boxW  = pageW - margin * 2;
+    const textX = margin + numW + pad;
+    const textW = boxW - numW - pad * 2;
+    const boxH  = measureFrameworkStepHeight(doc, tokens, textW, step);
 
+    // Hairline box around the whole step, then the full-height black number
+    // column flush to its left edge (matches the REFRESH template).
+    doc.setDrawColor(...hexToRgb(tokens.colors.border));
+    doc.setLineWidth(0.3);
+    doc.rect(margin, y, boxW, boxH, 'S');
     doc.setFillColor(...hexToRgb(tokens.colors.bar));
-    doc.rect(margin, y, squareSize, squareSize, 'F');
+    doc.rect(margin, y, numW, boxH, 'F');
     setType(doc, tokens, 'sessionTitle', tokens.colors.onBar);
-    doc.text(String(step.n), margin + squareSize / 2, y + squareSize / 2 + tokens.typography.sessionTitle.size * 0.18, { align: 'center' });
+    doc.text(String(step.n), margin + numW / 2, y + boxH / 2 + tokens.typography.sessionTitle.size * 0.18, { align: 'center' });
 
+    // Title + bullets inside the box, to the right of the number column.
+    let textY = y + pad + tokens.typography.sectionHeader.size * 0.35;
     setType(doc, tokens, 'sectionHeader', tokens.colors.onSurface);
-    const titleLines = doc.splitTextToSize(step.title || '', textW);
-    let textY = y + tokens.typography.sectionHeader.size * 0.35;
-    for (const line of titleLines) {
+    for (const line of doc.splitTextToSize(step.title || '', textW)) {
       doc.text(line, textX, textY);
       textY += tokens.typography.sectionHeader.size * 0.45;
     }
-
     setType(doc, tokens, 'body', tokens.colors.onSurface);
     for (const bullet of step.bullets || []) {
-      const wrapped = doc.splitTextToSize(`• ${bullet}`, textW - tokens.spacing.md);
-      for (const line of wrapped) {
+      for (const line of doc.splitTextToSize(`• ${bullet}`, textW)) {
         doc.text(line, textX, textY);
         textY += tokens.typography.body.size * 0.45;
       }
     }
 
-    return y + Math.max(squareSize, textY - y) + tokens.spacing.md;
+    return y + boxH + tokens.spacing.md;
   }
 
   function drawFramework(doc, framework, tokens, y, pageW, pageH, margin) {
@@ -419,7 +427,7 @@
     doc.text('SESSION FRAMEWORK', margin, y);
     y += tokens.spacing.lg;
 
-    const textW = pageW - margin * 2 - tokens.spacing.xl - tokens.spacing.sm;
+    const textW = pageW - margin * 2 - tokens.spacing['2xl'] - tokens.spacing.md * 2;
     for (const step of framework) {
       const stepH = measureFrameworkStepHeight(doc, tokens, textW, step);
       if (y + stepH > pageH - margin) {
