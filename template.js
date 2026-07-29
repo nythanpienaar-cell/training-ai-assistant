@@ -220,7 +220,10 @@ Tone: professional but warm and approachable.`;
   // any session) into { learningPhilosophy[], oralLearningPrinciples[] }.
   // Missing or off-template input parses to empty arrays rather than throwing.
   function extractHowItWorks(text) {
-    const sectionMatch = text.match(/##\s+HOW THIS TRAINING WORKS([\s\S]*?)(?=\n##\s|$)/i);
+    // Accept the section as "## / ### HOW THIS TRAINING WORKS" or bold, and read
+    // up to the first session, so the front matter is found even if the model
+    // varies the heading style slightly.
+    const sectionMatch = text.match(/(?:#{2,3}\s+HOW THIS TRAINING WORKS|\*\*\s*HOW THIS TRAINING WORKS\s*\*\*)([\s\S]*?)(?=\n##\s+SESSION\b|$)/i);
     const section = sectionMatch ? sectionMatch[1] : '';
     return {
       learningPhilosophy: extractHeadingBullets(section, 'Learning Philosophy'),
@@ -228,17 +231,19 @@ Tone: professional but warm and approachable.`;
     };
   }
 
-  // Pulls the bullets under a "### Heading" sub-heading out of a section, up
-  // to the next "###" heading or the end of the section.
+  // Pulls the bullets under a sub-heading out of a section, tolerating the
+  // heading as "### Heading", "## Heading", or "**Heading**", and bullets that
+  // start with "-", "*", or "•" — up to the next heading of any of those forms.
   function extractHeadingBullets(section, heading) {
-    const re = new RegExp(`###\\s+${heading}([\\s\\S]*?)(?=\\n###|$)`, 'i');
+    const re = new RegExp(
+      `(?:#{2,3}\\s+${heading}|\\*\\*\\s*${heading}\\s*\\*\\*)([\\s\\S]*?)(?=\\n#{2,3}\\s|\\n\\*\\*|$)`, 'i');
     const match = section.match(re);
     if (!match) return [];
     return match[1]
       .split('\n')
       .map(l => l.trim())
-      .filter(l => /^-\s+/.test(l))
-      .map(l => l.replace(/^-\s+/, '').trim());
+      .filter(l => /^[-*•]\s+/.test(l))
+      .map(l => l.replace(/^[-*•]\s+/, '').trim());
   }
 
   // Splits the manual on "## SESSION N — Name" headings and pulls each

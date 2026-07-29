@@ -439,33 +439,34 @@
     return y + tokens.spacing.sm;
   }
 
-  // ── Activity cards (hairline-bordered, stacked rows) ─────────────────────
-  function activityRows(activity) {
-    return [
-      ['Goal', activity.goal],
-      ['Type', activity.type],
-      ['Materials', activity.materials],
-      ['Instructions', (activity.instructions || []).map((s, i) => `${i + 1}. ${s}`).join('\n')],
-      ['Facilitator Notes', activity.facilitatorNotes],
-      ['Teaching Point', activity.teachingPoint]
-    ].filter(([, value]) => value);
+  // ── Activity cards ───────────────────────────────────────────────────────
+  // Bordered card, one field per row with a hairline divider between rows
+  // (matching the REFRESH template). Only the "Activity:" header is bold;
+  // every other row — including each numbered instruction step, on its own
+  // row — is normal weight.
+  function activityRowObjects(activity) {
+    const rows = [{ text: `Activity: ${activity.name || ''}`, bold: true }];
+    if (activity.goal)      rows.push({ text: `Goal: ${activity.goal}` });
+    if (activity.type)      rows.push({ text: `Type: ${activity.type}` });
+    if (activity.materials) rows.push({ text: `Materials: ${activity.materials}` });
+    if (activity.instructions && activity.instructions.length) {
+      rows.push({ text: 'Instructions:' });
+      activity.instructions.forEach((s, i) => rows.push({ text: `${i + 1}. ${s}` }));
+    }
+    if (activity.facilitatorNotes) rows.push({ text: `Facilitator Notes: ${activity.facilitatorNotes}` });
+    if (activity.teachingPoint)    rows.push({ text: `Teaching Point: ${activity.teachingPoint}` });
+    return rows;
   }
 
   function measureActivityCardHeight(doc, tokens, textW, activity) {
     const innerW = textW - tokens.spacing.md * 2;
     const lineH  = tokens.typography.body.size * 0.45;
-    let h = tokens.spacing.md * 2 + tokens.typography.label.size * 0.45; // "Activity:" line
-    for (const [label, value] of activityRows(activity)) {
-      setType(doc, tokens, 'label', tokens.colors.onSurface);
-      const labelW = doc.getTextWidth(`${label}: `);
-      setType(doc, tokens, 'body', tokens.colors.onSurface);
-      let first = true;
-      for (const seg of String(value).split('\n')) {
-        const wrapped = doc.splitTextToSize(seg, innerW - (first ? labelW : 0));
-        h += wrapped.length * lineH;
-        first = false;
-      }
-      h += tokens.spacing.xs;
+    const rowPad = tokens.spacing.sm;
+    let h = 0;
+    for (const row of activityRowObjects(activity)) {
+      setType(doc, tokens, row.bold ? 'label' : 'body', tokens.colors.onSurface);
+      const wrapped = doc.splitTextToSize(row.text, innerW);
+      h += rowPad * 2 + wrapped.length * lineH;
     }
     return h;
   }
@@ -474,37 +475,30 @@
     const textW  = pageW - margin * 2;
     const innerW = textW - tokens.spacing.md * 2;
     const lineH  = tokens.typography.body.size * 0.45;
+    const rowPad = tokens.spacing.sm;
+    const rows   = activityRowObjects(activity);
     const cardH  = measureActivityCardHeight(doc, tokens, textW, activity);
 
     doc.setDrawColor(...hexToRgb(tokens.colors.border));
     doc.setLineWidth(0.3);
-    doc.roundedRect(margin, y, textW, cardH, tokens.rounded.sm, tokens.rounded.sm, 'S');
+    doc.rect(margin, y, textW, cardH, 'S');
 
     const x = margin + tokens.spacing.md;
-    let textY = y + tokens.spacing.md + tokens.typography.label.size * 0.35;
-    setType(doc, tokens, 'label', tokens.colors.onSurface);
-    doc.text(`Activity: ${activity.name || ''}`, x, textY);
-    textY += tokens.typography.label.size * 0.45;
-
-    // Each row draws its bold label and value on the SAME line (value wraps
-    // beneath), so label and value never collide.
-    for (const [label, value] of activityRows(activity)) {
-      const labelText = `${label}: `;
-      setType(doc, tokens, 'label', tokens.colors.onSurface);
-      doc.text(labelText, x, textY);
-      const labelW = doc.getTextWidth(labelText);
-      setType(doc, tokens, 'body', tokens.colors.onSurface);
-      let first = true;
-      for (const seg of String(value).split('\n')) {
-        const wrapped = doc.splitTextToSize(seg, innerW - (first ? labelW : 0));
-        wrapped.forEach((line, i) => {
-          doc.text(line, (first && i === 0) ? x + labelW : x, textY);
-          textY += lineH;
-        });
-        first = false;
+    let rowY = y;
+    rows.forEach((row, idx) => {
+      if (idx > 0) {                       // hairline divider above each row
+        doc.setDrawColor(...hexToRgb(tokens.colors.border));
+        doc.setLineWidth(0.2);
+        doc.line(margin, rowY, margin + textW, rowY);
       }
-      textY += tokens.spacing.xs;
-    }
+      setType(doc, tokens, row.bold ? 'label' : 'body', tokens.colors.onSurface);
+      let textY = rowY + rowPad + tokens.typography.body.size * 0.35;
+      for (const line of doc.splitTextToSize(row.text, innerW)) {
+        doc.text(line, x, textY);
+        textY += lineH;
+      }
+      rowY += rowPad * 2 + doc.splitTextToSize(row.text, innerW).length * lineH;
+    });
 
     return y + cardH + tokens.spacing.lg;
   }
