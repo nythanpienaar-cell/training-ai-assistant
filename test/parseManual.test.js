@@ -272,5 +272,77 @@ Participants move from avoiding conflict to naming it early.
   assert.ok(!s1.remainder.includes('Participants move from avoiding conflict to naming it early.'));
   assert.ok(!s1.remainder.includes('SESSION FRAMEWORK'));
   assert.ok(!s1.remainder.includes('ACTIVITY DESIGN'));
-  assert.ok(s1.remainder.includes('FINAL ACTIVATION'));
+  assert.ok(!s1.remainder.includes('FINAL ACTIVATION'));
+});
+
+test('parseManual models the "How This Training Works" front matter', () => {
+  const markdown = `# Conflict Resolution Basics
+*Turning friction into growth*
+2 SESSIONS  ·  PARTICIPATORY | STORY-DRIVEN | REPRODUCIBLE
+
+## HOW THIS TRAINING WORKS
+### Learning Philosophy
+- Not lecture-based
+- Highly participatory
+- Story-driven and experiential
+
+### Oral Learning Principles
+- Use stories
+- Use repetition
+- Use group discussion
+
+## SESSION 1 — Naming the Conflict
+`;
+
+  const doc = parseManual(markdown);
+
+  assert.deepEqual(doc.howItWorks, {
+    learningPhilosophy: ['Not lecture-based', 'Highly participatory', 'Story-driven and experiential'],
+    oralLearningPrinciples: ['Use stories', 'Use repetition', 'Use group discussion']
+  });
+});
+
+test('parseManual gives howItWorks empty arrays rather than throwing when front matter is missing', () => {
+  const doc = parseManual('Sure, happy to help with that!');
+
+  assert.deepEqual(doc.howItWorks, { learningPhilosophy: [], oralLearningPrinciples: [] });
+});
+
+test('parseManual models the final session\'s Real-Life Application Plan', () => {
+  const markdown = `# Conflict Resolution Basics
+## SESSION 1 — Naming the Conflict
+### PURPOSE — Why This Session Exists
+First session.
+
+## SESSION 2 — Responding Well
+### PURPOSE — Why This Session Exists
+Final session.
+
+### FINAL ACTIVATION — Real-Life Application Plan
+- **WHO** will I train/disciple using what I have learned?
+- **WHEN and WHERE** will I start?
+- **WHAT** is one activity or truth I will use first?
+- **HOW** will I keep accountability?
+`;
+
+  const doc = parseManual(markdown);
+
+  assert.deepEqual(doc.sessions[0].applicationPlan, []);
+  assert.deepEqual(doc.sessions[1].applicationPlan, [
+    { label: 'WHO', text: 'will I train/disciple using what I have learned?' },
+    { label: 'WHEN and WHERE', text: 'will I start?' },
+    { label: 'WHAT', text: 'is one activity or truth I will use first?' },
+    { label: 'HOW', text: 'will I keep accountability?' }
+  ]);
+});
+
+test('parseManual gives a session missing FINAL ACTIVATION an empty applicationPlan array', () => {
+  const markdown = `# Bare Bones Manual
+## SESSION 1 — Just a Name
+`;
+
+  const doc = parseManual(markdown);
+  const s1 = doc.sessions[0];
+
+  assert.deepEqual(s1.applicationPlan, []);
 });

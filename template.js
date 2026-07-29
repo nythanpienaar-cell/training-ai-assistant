@@ -210,9 +210,35 @@ Tone: professional but warm and approachable.`;
 
     return {
       cover: { title, tagline, sessionCount, descriptors },
+      howItWorks: extractHowItWorks(text),
       sessions,
       raw: text
     };
+  }
+
+  // Parses the "## HOW THIS TRAINING WORKS" front matter (which sits before
+  // any session) into { learningPhilosophy[], oralLearningPrinciples[] }.
+  // Missing or off-template input parses to empty arrays rather than throwing.
+  function extractHowItWorks(text) {
+    const sectionMatch = text.match(/##\s+HOW THIS TRAINING WORKS([\s\S]*?)(?=\n##\s|$)/i);
+    const section = sectionMatch ? sectionMatch[1] : '';
+    return {
+      learningPhilosophy: extractHeadingBullets(section, 'Learning Philosophy'),
+      oralLearningPrinciples: extractHeadingBullets(section, 'Oral Learning Principles')
+    };
+  }
+
+  // Pulls the bullets under a "### Heading" sub-heading out of a section, up
+  // to the next "###" heading or the end of the section.
+  function extractHeadingBullets(section, heading) {
+    const re = new RegExp(`###\\s+${heading}([\\s\\S]*?)(?=\\n###|$)`, 'i');
+    const match = section.match(re);
+    if (!match) return [];
+    return match[1]
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => /^-\s+/.test(l))
+      .map(l => l.replace(/^-\s+/, '').trim());
   }
 
   // Splits the manual on "## SESSION N — Name" headings and pulls each
@@ -238,8 +264,9 @@ Tone: professional but warm and approachable.`;
         transformationGoal: extractTransformationGoal(body),
         framework: extractFramework(body),
         activities: extractActivities(body),
-        // Whatever this ticket doesn't structure yet (front matter, final
-        // activation) so the renderer can still show it as plain text.
+        applicationPlan: extractApplicationPlan(body),
+        // Whatever this ticket doesn't structure yet so the renderer can
+        // still show it as plain text.
         remainder: stripStructuredParts(body)
       };
     });
@@ -254,7 +281,26 @@ Tone: professional but warm and approachable.`;
       .replace(/###\s+TRANSFORMATION GOAL[^\n]*\n[\s\S]*?(?=\n###|$)/i, '')
       .replace(/###\s+SESSION FRAMEWORK[\s\S]*?(?=\n###|$)/i, '')
       .replace(/###\s+ACTIVITY DESIGN[\s\S]*?(?=\n###|$)/i, '')
+      .replace(/###\s+FINAL ACTIVATION[^\n]*\n[\s\S]*?(?=\n###|$)/i, '')
       .trim();
+  }
+
+  // Parses the final session's "### FINAL ACTIVATION — Real-Life Application
+  // Plan" bullets (e.g. "- **WHO** will I train?") into { label, text }
+  // objects. Sessions without this section (i.e. every session but the last)
+  // parse to an empty array rather than throwing.
+  function extractApplicationPlan(body) {
+    const sectionMatch = body.match(/###\s+FINAL ACTIVATION[^\n]*\n([\s\S]*?)(?=\n###|$)/i);
+    if (!sectionMatch) return [];
+    const section = sectionMatch[1];
+
+    const itemRe = /^-\s+\*\*([^*]+)\*\*\s*(.*)$/gim;
+    const matches = [...section.matchAll(itemRe)];
+
+    return matches.map(match => ({
+      label: match[1].trim(),
+      text: match[2].trim()
+    }));
   }
 
   // Parses the "### SESSION FRAMEWORK" numbered stages into

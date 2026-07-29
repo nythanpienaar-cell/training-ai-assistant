@@ -62,6 +62,97 @@
     }
   }
 
+  // ── Front matter: "How This Training Works" (Learning Philosophy + Oral
+  // Learning Principles), drawn near the front, right after the cover ──────
+  function drawBulletList(doc, tokens, heading, bullets, y, pageW, pageH, margin) {
+    if (!bullets || !bullets.length) return y;
+
+    setType(doc, tokens, 'sectionHeader', tokens.colors.onSurface);
+    if (y + tokens.spacing.lg > pageH - margin) {
+      doc.addPage();
+      y = margin;
+    }
+    doc.text(heading, margin, y);
+    y += tokens.spacing.lg;
+
+    setType(doc, tokens, 'body', tokens.colors.onSurface);
+    const textW = pageW - margin * 2 - tokens.spacing.md;
+    for (const bullet of bullets) {
+      const wrapped = doc.splitTextToSize(`• ${bullet}`, textW);
+      for (const line of wrapped) {
+        if (y + tokens.typography.body.size * 0.45 > pageH - margin) {
+          doc.addPage();
+          y = margin;
+        }
+        doc.text(line, margin + tokens.spacing.md, y);
+        y += tokens.typography.body.size * 0.45;
+      }
+    }
+    return y + tokens.spacing.lg;
+  }
+
+  function drawHowItWorks(doc, howItWorks, tokens) {
+    if (!howItWorks) return;
+    const hasAny = (howItWorks.learningPhilosophy && howItWorks.learningPhilosophy.length) ||
+      (howItWorks.oralLearningPrinciples && howItWorks.oralLearningPrinciples.length);
+    if (!hasAny) return;
+
+    const pageW  = doc.internal.pageSize.getWidth();
+    const pageH  = doc.internal.pageSize.getHeight();
+    const margin = tokens.spacing.page;
+
+    doc.addPage();
+    let y = margin;
+
+    setType(doc, tokens, 'displaySub', tokens.colors.onSurface);
+    doc.text('HOW THIS TRAINING WORKS', margin, y);
+    y += tokens.spacing.xl;
+
+    y = drawBulletList(doc, tokens, 'Learning Philosophy', howItWorks.learningPhilosophy, y, pageW, pageH, margin);
+    y = drawBulletList(doc, tokens, 'Oral Learning Principles', howItWorks.oralLearningPrinciples, y, pageW, pageH, margin);
+  }
+
+  // ── Final Activation: Real-Life Application Plan (WHO/WHEN&WHERE/WHAT/HOW) ─
+  function measureApplicationPlanHeight(doc, tokens, textW, plan) {
+    let h = tokens.spacing.md * 2 + tokens.typography.sectionHeader.size * 0.45;
+    for (const item of plan) {
+      setType(doc, tokens, 'body', tokens.colors.onSurface);
+      const wrapped = doc.splitTextToSize(`${item.label}: ${item.text}`, textW - tokens.spacing.md * 2);
+      h += wrapped.length * (tokens.typography.body.size * 0.45);
+    }
+    return h;
+  }
+
+  function drawApplicationPlan(doc, plan, tokens, y, pageW, pageH, margin) {
+    if (!plan || !plan.length) return y;
+    const textW = pageW - margin * 2;
+    const boxH = measureApplicationPlanHeight(doc, tokens, textW, plan);
+
+    if (y + boxH > pageH - margin) {
+      doc.addPage();
+      y = margin;
+    }
+
+    setType(doc, tokens, 'sectionHeader', tokens.colors.onSurface);
+    doc.text('FINAL ACTIVATION — REAL-LIFE APPLICATION PLAN', margin, y);
+    y += tokens.spacing.lg;
+
+    for (const item of plan) {
+      setType(doc, tokens, 'label', tokens.colors.onSurface);
+      const labelText = `${item.label}: `;
+      doc.text(labelText, margin, y);
+      const labelW = doc.getTextWidth(labelText);
+
+      setType(doc, tokens, 'body', tokens.colors.onSurface);
+      const wrapped = doc.splitTextToSize(item.text, textW - labelW);
+      wrapped.forEach((line, i) => {
+        doc.text(line, margin + (i === 0 ? labelW : 0), y);
+        y += tokens.typography.body.size * 0.45;
+      });
+    }
+    return y + tokens.spacing.md;
+  }
+
   // ── Session opening: section-tag, session-band, theme, overview, purpose ──
   function drawSessionHeader(doc, session, index, tokens, y, pageW, margin) {
     const tagH = tokens.typography.eyebrow.size * 0.5 + tokens.spacing.sm * 2;
@@ -383,7 +474,8 @@
       y = drawTransformationGoal(doc, session.transformationGoal, tokens, y, pageW, pageH, margin);
       y = drawFramework(doc, session.framework, tokens, y, pageW, pageH, margin);
       y = drawActivities(doc, session.activities, tokens, y, pageW, pageH, margin);
-      if (session.remainder) drawFallbackText(doc, session.remainder, tokens, y, false);
+      if (session.remainder) y = drawFallbackText(doc, session.remainder, tokens, y, false);
+      drawApplicationPlan(doc, session.applicationPlan, tokens, y, pageW, pageH, margin);
     });
   }
 
@@ -482,8 +574,11 @@
 
     if (sessions.length) {
       const firstSessionMatch = raw.match(/^##\s+SESSION\s+\d+/im);
-      const frontMatter = firstSessionMatch ? raw.slice(0, firstSessionMatch.index) : raw;
-      if (frontMatter.trim()) drawFallbackText(doc, frontMatter, tokens, null, true);
+      let frontMatter = firstSessionMatch ? raw.slice(0, firstSessionMatch.index) : raw;
+      frontMatter = frontMatter.replace(/##\s+HOW THIS TRAINING WORKS[\s\S]*?(?=\n##\s|$)/i, '').trim();
+
+      drawHowItWorks(doc, manualDoc.howItWorks, tokens);
+      if (frontMatter) drawFallbackText(doc, frontMatter, tokens, null, true);
       drawSessions(doc, sessions, tokens);
     } else {
       drawFallbackText(doc, raw, tokens, null, true);
