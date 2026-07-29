@@ -104,3 +104,72 @@ test('parseManual returns an empty sessions array for off-template input', () =>
 
   assert.deepEqual(doc.sessions, []);
 });
+
+test('parseManual models a session\'s learning outcomes triad and transformation goal', () => {
+  const markdown = `# Conflict Resolution Basics
+## SESSION 1 — Naming the Conflict
+*Learning to see friction clearly*
+
+### LEARNING OUTCOMES
+**KNOW (Head)**
+- Recognise the early signs of conflict
+- Understand the cost of avoidance
+**DO (Hands)**
+- Practise naming a conflict out loud
+**BECOME (Heart)**
+- People who face friction instead of hiding from it
+
+### TRANSFORMATION GOAL
+Participants move from avoiding conflict to naming it early and calmly.
+
+### SESSION FRAMEWORK
+1. **Welcome & Connection** — open with a question
+`;
+
+  const doc = parseManual(markdown);
+  const s1 = doc.sessions[0];
+
+  assert.deepEqual(s1.outcomes, {
+    know: ['Recognise the early signs of conflict', 'Understand the cost of avoidance'],
+    do: ['Practise naming a conflict out loud'],
+    become: ['People who face friction instead of hiding from it']
+  });
+  assert.equal(s1.transformationGoal, 'Participants move from avoiding conflict to naming it early and calmly.');
+});
+
+test('parseManual gives sessions missing outcomes/transformation goal empty arrays and null rather than throwing', () => {
+  const markdown = `# Bare Bones Manual
+## SESSION 1 — Just a Name
+`;
+
+  const doc = parseManual(markdown);
+  const s1 = doc.sessions[0];
+
+  assert.deepEqual(s1.outcomes, { know: [], do: [], become: [] });
+  assert.equal(s1.transformationGoal, null);
+});
+
+test('parseManual strips LEARNING OUTCOMES and TRANSFORMATION GOAL from a session\'s remainder', () => {
+  const markdown = `# Conflict Resolution Basics
+## SESSION 1 — Naming the Conflict
+
+### LEARNING OUTCOMES
+**KNOW (Head)**
+- Recognise the early signs of conflict
+
+### TRANSFORMATION GOAL
+Participants move from avoiding conflict to naming it early.
+
+### SESSION FRAMEWORK
+1. **Welcome & Connection** — open with a question
+`;
+
+  const doc = parseManual(markdown);
+  const s1 = doc.sessions[0];
+
+  assert.ok(!s1.remainder.includes('LEARNING OUTCOMES'));
+  assert.ok(!s1.remainder.includes('Recognise the early signs of conflict'));
+  assert.ok(!s1.remainder.includes('TRANSFORMATION GOAL'));
+  assert.ok(!s1.remainder.includes('Participants move from avoiding conflict to naming it early.'));
+  assert.ok(s1.remainder.includes('SESSION FRAMEWORK'));
+});

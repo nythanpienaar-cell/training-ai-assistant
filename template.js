@@ -234,6 +234,8 @@ Tone: professional but warm and approachable.`;
         theme: extractTheme(body),
         overview: extractOverview(body),
         purpose: extractPurpose(body),
+        outcomes: extractOutcomes(body),
+        transformationGoal: extractTransformationGoal(body),
         // Whatever this ticket doesn't structure yet (framework, activities,
         // final activation) so the renderer can still show it as plain text.
         remainder: stripStructuredParts(body)
@@ -246,6 +248,8 @@ Tone: professional but warm and approachable.`;
       .replace(/^\*[^*]+\*$/m, '')
       .replace(/###\s+TRAINING OVERVIEW[\s\S]*?(?=\n###|$)/i, '')
       .replace(/###\s+PURPOSE[^\n]*\n[\s\S]*?(?=\n###|$)/i, '')
+      .replace(/###\s+LEARNING OUTCOMES[\s\S]*?(?=\n###|$)/i, '')
+      .replace(/###\s+TRANSFORMATION GOAL[^\n]*\n[\s\S]*?(?=\n###|$)/i, '')
       .trim();
   }
 
@@ -276,6 +280,37 @@ Tone: professional but warm and approachable.`;
     if (!sectionMatch) return null;
     const purpose = sectionMatch[1].trim();
     return purpose || null;
+  }
+
+  // Pulls the bullets under a **LABEL** sub-heading (e.g. "**KNOW (Head)**")
+  // out of the LEARNING OUTCOMES section, up to the next **LABEL** or the
+  // end of the section.
+  function extractOutcomeBullets(section, label) {
+    const re = new RegExp(`\\*\\*${label}[^*]*\\*\\*([\\s\\S]*?)(?=\\n\\*\\*|$)`, 'i');
+    const match = section.match(re);
+    if (!match) return [];
+    return match[1]
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => /^-\s+/.test(l))
+      .map(l => l.replace(/^-\s+/, '').trim());
+  }
+
+  function extractOutcomes(body) {
+    const sectionMatch = body.match(/###\s+LEARNING OUTCOMES([\s\S]*?)(?=\n###|$)/i);
+    const section = sectionMatch ? sectionMatch[1] : '';
+    return {
+      know: extractOutcomeBullets(section, 'KNOW'),
+      do: extractOutcomeBullets(section, 'DO'),
+      become: extractOutcomeBullets(section, 'BECOME')
+    };
+  }
+
+  function extractTransformationGoal(body) {
+    const sectionMatch = body.match(/###\s+TRANSFORMATION GOAL[^\n]*\n([\s\S]*?)(?=\n###|$)/i);
+    if (!sectionMatch) return null;
+    const goal = sectionMatch[1].trim();
+    return goal || null;
   }
 
   root.REFRESH_TEMPLATE_SPEC   = REFRESH_TEMPLATE_SPEC;

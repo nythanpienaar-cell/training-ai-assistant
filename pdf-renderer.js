@@ -133,11 +133,104 @@
     return y + boxH + tokens.spacing.lg;
   }
 
+  // ── Learning Outcomes triad (KNOW / DO / BECOME) ──────────────────────────
+  function measureOutcomeBlockHeight(doc, tokens, colWidth, label, bullets) {
+    setType(doc, tokens, 'label', tokens.colors.onSurface);
+    let h = tokens.spacing.md * 2 + tokens.typography.label.size * 0.45;
+    setType(doc, tokens, 'body', tokens.colors.onSurface);
+    const innerW = colWidth - tokens.spacing.md * 2 - tokens.spacing.sm;
+    for (const bullet of bullets) {
+      const wrapped = doc.splitTextToSize(bullet, innerW);
+      h += wrapped.length * (tokens.typography.body.size * 0.45);
+    }
+    return h;
+  }
+
+  function drawOutcomeBlock(doc, tokens, x, y, w, h, bgHex, label, bullets) {
+    doc.setFillColor(...hexToRgb(bgHex));
+    doc.rect(x, y, w, h, 'F');
+
+    let textY = y + tokens.spacing.md + tokens.typography.label.size * 0.35;
+    setType(doc, tokens, 'label', tokens.colors.onSurface);
+    doc.text(label, x + tokens.spacing.md, textY);
+    textY += tokens.typography.label.size * 0.45;
+
+    setType(doc, tokens, 'body', tokens.colors.onSurface);
+    const innerW = w - tokens.spacing.md * 2 - tokens.spacing.sm;
+    for (const bullet of bullets) {
+      const wrapped = doc.splitTextToSize(`• ${bullet}`, innerW);
+      for (const line of wrapped) {
+        doc.text(line, x + tokens.spacing.md, textY);
+        textY += tokens.typography.body.size * 0.45;
+      }
+    }
+  }
+
+  // Renders KNOW/DO/BECOME as three equal side-by-side blocks, drawn as a
+  // single unit so the triad never splits across a page break.
+  function drawOutcomes(doc, outcomes, tokens, y, pageW, pageH, margin) {
+    if (!outcomes) return y;
+    const hasAny = (outcomes.know && outcomes.know.length) ||
+      (outcomes.do && outcomes.do.length) ||
+      (outcomes.become && outcomes.become.length);
+    if (!hasAny) return y;
+
+    const gap = tokens.spacing.sm;
+    const colW = (pageW - margin * 2 - gap * 2) / 3;
+
+    const blockH = Math.max(
+      measureOutcomeBlockHeight(doc, tokens, colW, 'KNOW (Head)', outcomes.know || []),
+      measureOutcomeBlockHeight(doc, tokens, colW, 'DO (Hands)', outcomes.do || []),
+      measureOutcomeBlockHeight(doc, tokens, colW, 'BECOME (Heart)', outcomes.become || [])
+    );
+
+    if (y + blockH > pageH - margin) {
+      doc.addPage();
+      y = margin;
+    }
+
+    drawOutcomeBlock(doc, tokens, margin, y, colW, blockH, tokens.colors.know, 'KNOW (Head)', outcomes.know || []);
+    drawOutcomeBlock(doc, tokens, margin + colW + gap, y, colW, blockH, tokens.colors.do, 'DO (Hands)', outcomes.do || []);
+    drawOutcomeBlock(doc, tokens, margin + (colW + gap) * 2, y, colW, blockH, tokens.colors.become, 'BECOME (Heart)', outcomes.become || []);
+
+    return y + blockH + tokens.spacing.lg;
+  }
+
+  // ── Transformation Goal (gold-bordered goal-callout) ──────────────────────
+  function drawTransformationGoal(doc, goal, tokens, y, pageW, pageH, margin) {
+    if (!goal) return y;
+    const textW = pageW - margin * 2;
+
+    setType(doc, tokens, 'body', tokens.colors.onSurface);
+    const wrapped = doc.splitTextToSize(goal, textW - tokens.spacing.md * 2);
+    const boxH = wrapped.length * (tokens.typography.body.size * 0.45) + tokens.spacing.md * 2;
+
+    if (y + boxH > pageH - margin) {
+      doc.addPage();
+      y = margin;
+    }
+
+    doc.setFillColor(...hexToRgb(tokens.colors.surface));
+    doc.setDrawColor(...hexToRgb(tokens.colors.highlight));
+    doc.setLineWidth(0.5);
+    doc.roundedRect(margin, y, textW, boxH, tokens.rounded.sm, tokens.rounded.sm, 'FD');
+
+    let textY = y + tokens.spacing.md + tokens.typography.body.size * 0.35;
+    setType(doc, tokens, 'body', tokens.colors.onSurface);
+    for (const line of wrapped) {
+      doc.text(line, margin + tokens.spacing.md, textY);
+      textY += tokens.typography.body.size * 0.45;
+    }
+    return y + boxH + tokens.spacing.lg;
+  }
+
   // Draws each parsed session's opening (section-tag, session-band, theme,
-  // Training Overview, Purpose) on its own page.
+  // Training Overview, Purpose, Learning Outcomes, Transformation Goal) on
+  // its own page.
   function drawSessions(doc, sessions, tokens) {
     if (!sessions || !sessions.length) return;
     const pageW  = doc.internal.pageSize.getWidth();
+    const pageH  = doc.internal.pageSize.getHeight();
     const margin = tokens.spacing.page;
 
     sessions.forEach((session, i) => {
@@ -146,6 +239,8 @@
       y = drawSessionHeader(doc, session, i, tokens, y, pageW, margin);
       y = drawOverview(doc, session.overview, tokens, y, margin);
       y = drawPurpose(doc, session.purpose, tokens, y, pageW, margin);
+      y = drawOutcomes(doc, session.outcomes, tokens, y, pageW, pageH, margin);
+      y = drawTransformationGoal(doc, session.transformationGoal, tokens, y, pageW, pageH, margin);
       if (session.remainder) drawFallbackText(doc, session.remainder, tokens, y, false);
     });
   }
