@@ -149,7 +149,99 @@ test('parseManual gives sessions missing outcomes/transformation goal empty arra
   assert.equal(s1.transformationGoal, null);
 });
 
-test('parseManual strips LEARNING OUTCOMES and TRANSFORMATION GOAL from a session\'s remainder', () => {
+test('parseManual models a session\'s SESSION FRAMEWORK as numbered steps', () => {
+  const markdown = `# Conflict Resolution Basics
+## SESSION 1 — Naming the Conflict
+
+### SESSION FRAMEWORK
+1. **Welcome & Connection** — open with a question that draws people in
+- Ask: "What's a small conflict you've had this week?"
+- Let two or three people answer
+2. **Engage — Experience First** — an activity or open discussion
+- Do not explain yet, let them explore
+`;
+
+  const doc = parseManual(markdown);
+  const s1 = doc.sessions[0];
+
+  assert.equal(s1.framework.length, 2);
+  assert.deepEqual(s1.framework[0], {
+    n: 1,
+    title: 'Welcome & Connection — open with a question that draws people in',
+    bullets: ['Ask: "What\'s a small conflict you\'ve had this week?"', 'Let two or three people answer']
+  });
+  assert.deepEqual(s1.framework[1], {
+    n: 2,
+    title: 'Engage — Experience First — an activity or open discussion',
+    bullets: ['Do not explain yet, let them explore']
+  });
+});
+
+test('parseManual gives a session missing SESSION FRAMEWORK an empty array rather than throwing', () => {
+  const markdown = `# Bare Bones Manual
+## SESSION 1 — Just a Name
+`;
+
+  const doc = parseManual(markdown);
+  const s1 = doc.sessions[0];
+
+  assert.deepEqual(s1.framework, []);
+});
+
+test('parseManual models a session\'s ACTIVITY DESIGN cards', () => {
+  const markdown = `# Conflict Resolution Basics
+## SESSION 1 — Naming the Conflict
+
+### ACTIVITY DESIGN
+**Activity: Two Truths and a Tension**
+- **Goal:** Help participants notice conflict signals
+- **Type:** Discussion
+- **Materials:** None
+- **Instructions:**
+  1. Pair up participants
+  2. Each shares two truths and one tension
+- **Facilitator Notes:** Keep it light and low-stakes
+- **Teaching Point:** Conflict is often hiding in plain sight
+
+**Activity: The Silent Circle**
+- **Goal:** Practise noticing body language
+- **Type:** Physical / experiential
+- **Materials:** None
+- **Instructions:**
+  1. Stand in a circle
+- **Facilitator Notes:** Watch for anyone uncomfortable
+- **Teaching Point:** Tension shows up before words do
+`;
+
+  const doc = parseManual(markdown);
+  const s1 = doc.sessions[0];
+
+  assert.equal(s1.activities.length, 2);
+  assert.deepEqual(s1.activities[0], {
+    name: 'Two Truths and a Tension',
+    goal: 'Help participants notice conflict signals',
+    type: 'Discussion',
+    materials: 'None',
+    instructions: ['Pair up participants', 'Each shares two truths and one tension'],
+    facilitatorNotes: 'Keep it light and low-stakes',
+    teachingPoint: 'Conflict is often hiding in plain sight'
+  });
+  assert.equal(s1.activities[1].name, 'The Silent Circle');
+  assert.deepEqual(s1.activities[1].instructions, ['Stand in a circle']);
+});
+
+test('parseManual gives a session missing ACTIVITY DESIGN an empty array rather than throwing', () => {
+  const markdown = `# Bare Bones Manual
+## SESSION 1 — Just a Name
+`;
+
+  const doc = parseManual(markdown);
+  const s1 = doc.sessions[0];
+
+  assert.deepEqual(s1.activities, []);
+});
+
+test('parseManual strips all structured sections from a session\'s remainder', () => {
   const markdown = `# Conflict Resolution Basics
 ## SESSION 1 — Naming the Conflict
 
@@ -162,6 +254,13 @@ Participants move from avoiding conflict to naming it early.
 
 ### SESSION FRAMEWORK
 1. **Welcome & Connection** — open with a question
+
+### ACTIVITY DESIGN
+**Activity: Two Truths and a Tension**
+- **Goal:** Notice conflict signals
+
+### FINAL ACTIVATION — Real-Life Application Plan
+- **WHO** will I train?
 `;
 
   const doc = parseManual(markdown);
@@ -171,5 +270,7 @@ Participants move from avoiding conflict to naming it early.
   assert.ok(!s1.remainder.includes('Recognise the early signs of conflict'));
   assert.ok(!s1.remainder.includes('TRANSFORMATION GOAL'));
   assert.ok(!s1.remainder.includes('Participants move from avoiding conflict to naming it early.'));
-  assert.ok(s1.remainder.includes('SESSION FRAMEWORK'));
+  assert.ok(!s1.remainder.includes('SESSION FRAMEWORK'));
+  assert.ok(!s1.remainder.includes('ACTIVITY DESIGN'));
+  assert.ok(s1.remainder.includes('FINAL ACTIVATION'));
 });

@@ -224,9 +224,149 @@
     return y + boxH + tokens.spacing.lg;
   }
 
+  // ── Session Framework (numbered steps, black number square) ──────────────
+  function measureFrameworkStepHeight(doc, tokens, textW, step) {
+    setType(doc, tokens, 'sectionHeader', tokens.colors.onSurface);
+    const titleLines = doc.splitTextToSize(step.title || '', textW);
+    let h = Math.max(titleLines.length * (tokens.typography.sectionHeader.size * 0.45), tokens.spacing.xl);
+    setType(doc, tokens, 'body', tokens.colors.onSurface);
+    for (const bullet of step.bullets || []) {
+      const wrapped = doc.splitTextToSize(`• ${bullet}`, textW - tokens.spacing.md);
+      h += wrapped.length * (tokens.typography.body.size * 0.45);
+    }
+    return h + tokens.spacing.md;
+  }
+
+  function drawFrameworkStep(doc, tokens, step, y, pageW, margin) {
+    const squareSize = tokens.spacing.xl;
+    const textX = margin + squareSize + tokens.spacing.sm;
+    const textW = pageW - margin * 2 - squareSize - tokens.spacing.sm;
+
+    doc.setFillColor(...hexToRgb(tokens.colors.bar));
+    doc.rect(margin, y, squareSize, squareSize, 'F');
+    setType(doc, tokens, 'sessionTitle', tokens.colors.onBar);
+    doc.text(String(step.n), margin + squareSize / 2, y + squareSize / 2 + tokens.typography.sessionTitle.size * 0.18, { align: 'center' });
+
+    setType(doc, tokens, 'sectionHeader', tokens.colors.onSurface);
+    const titleLines = doc.splitTextToSize(step.title || '', textW);
+    let textY = y + tokens.typography.sectionHeader.size * 0.35;
+    for (const line of titleLines) {
+      doc.text(line, textX, textY);
+      textY += tokens.typography.sectionHeader.size * 0.45;
+    }
+
+    setType(doc, tokens, 'body', tokens.colors.onSurface);
+    for (const bullet of step.bullets || []) {
+      const wrapped = doc.splitTextToSize(`• ${bullet}`, textW - tokens.spacing.md);
+      for (const line of wrapped) {
+        doc.text(line, textX, textY);
+        textY += tokens.typography.body.size * 0.45;
+      }
+    }
+
+    return y + Math.max(squareSize, textY - y) + tokens.spacing.md;
+  }
+
+  function drawFramework(doc, framework, tokens, y, pageW, pageH, margin) {
+    if (!framework || !framework.length) return y;
+
+    setType(doc, tokens, 'sectionHeader', tokens.colors.onSurface);
+    doc.text('SESSION FRAMEWORK', margin, y);
+    y += tokens.spacing.lg;
+
+    const textW = pageW - margin * 2 - tokens.spacing.xl - tokens.spacing.sm;
+    for (const step of framework) {
+      const stepH = measureFrameworkStepHeight(doc, tokens, textW, step);
+      if (y + stepH > pageH - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      y = drawFrameworkStep(doc, tokens, step, y, pageW, margin);
+    }
+    return y + tokens.spacing.sm;
+  }
+
+  // ── Activity cards (hairline-bordered, stacked rows) ─────────────────────
+  function activityRows(activity) {
+    return [
+      ['Goal', activity.goal],
+      ['Type', activity.type],
+      ['Materials', activity.materials],
+      ['Instructions', (activity.instructions || []).map((s, i) => `${i + 1}. ${s}`).join('\n')],
+      ['Facilitator Notes', activity.facilitatorNotes],
+      ['Teaching Point', activity.teachingPoint]
+    ].filter(([, value]) => value);
+  }
+
+  function measureActivityCardHeight(doc, tokens, textW, activity) {
+    const innerW = textW - tokens.spacing.md * 2;
+    let h = tokens.spacing.md * 2 + tokens.typography.label.size * 0.45;
+    for (const [, value] of activityRows(activity)) {
+      setType(doc, tokens, 'body', tokens.colors.onSurface);
+      const lines = value.split('\n');
+      for (const line of lines) {
+        const wrapped = doc.splitTextToSize(line, innerW);
+        h += wrapped.length * (tokens.typography.body.size * 0.45);
+      }
+      h += tokens.spacing.xs;
+    }
+    return h;
+  }
+
+  function drawActivityCard(doc, tokens, activity, y, pageW, margin) {
+    const textW = pageW - margin * 2;
+    const innerW = textW - tokens.spacing.md * 2;
+    const cardH = measureActivityCardHeight(doc, tokens, textW, activity);
+
+    doc.setDrawColor(...hexToRgb(tokens.colors.border));
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, textW, cardH, tokens.rounded.sm, tokens.rounded.sm, 'S');
+
+    let textY = y + tokens.spacing.md + tokens.typography.label.size * 0.35;
+    setType(doc, tokens, 'label', tokens.colors.onSurface);
+    doc.text(`Activity: ${activity.name || ''}`, margin + tokens.spacing.md, textY);
+    textY += tokens.typography.label.size * 0.45;
+
+    for (const [label, value] of activityRows(activity)) {
+      setType(doc, tokens, 'label', tokens.colors.onSurface);
+      doc.text(`${label}:`, margin + tokens.spacing.md, textY);
+      setType(doc, tokens, 'body', tokens.colors.onSurface);
+      const lines = value.split('\n');
+      for (const line of lines) {
+        const wrapped = doc.splitTextToSize(line, innerW);
+        for (const wl of wrapped) {
+          textY += tokens.typography.body.size * 0.45;
+          doc.text(wl, margin + tokens.spacing.md, textY);
+        }
+      }
+      textY += tokens.spacing.xs;
+    }
+
+    return y + cardH + tokens.spacing.lg;
+  }
+
+  function drawActivities(doc, activities, tokens, y, pageW, pageH, margin) {
+    if (!activities || !activities.length) return y;
+
+    setType(doc, tokens, 'sectionHeader', tokens.colors.onSurface);
+    doc.text('ACTIVITY DESIGN', margin, y);
+    y += tokens.spacing.lg;
+
+    const textW = pageW - margin * 2;
+    for (const activity of activities) {
+      const cardH = measureActivityCardHeight(doc, tokens, textW, activity);
+      if (y + cardH > pageH - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      y = drawActivityCard(doc, tokens, activity, y, pageW, margin);
+    }
+    return y;
+  }
+
   // Draws each parsed session's opening (section-tag, session-band, theme,
-  // Training Overview, Purpose, Learning Outcomes, Transformation Goal) on
-  // its own page.
+  // Training Overview, Purpose, Learning Outcomes, Transformation Goal,
+  // Session Framework, Activity Design) on its own page.
   function drawSessions(doc, sessions, tokens) {
     if (!sessions || !sessions.length) return;
     const pageW  = doc.internal.pageSize.getWidth();
@@ -241,6 +381,8 @@
       y = drawPurpose(doc, session.purpose, tokens, y, pageW, margin);
       y = drawOutcomes(doc, session.outcomes, tokens, y, pageW, pageH, margin);
       y = drawTransformationGoal(doc, session.transformationGoal, tokens, y, pageW, pageH, margin);
+      y = drawFramework(doc, session.framework, tokens, y, pageW, pageH, margin);
+      y = drawActivities(doc, session.activities, tokens, y, pageW, pageH, margin);
       if (session.remainder) drawFallbackText(doc, session.remainder, tokens, y, false);
     });
   }

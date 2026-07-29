@@ -236,8 +236,10 @@ Tone: professional but warm and approachable.`;
         purpose: extractPurpose(body),
         outcomes: extractOutcomes(body),
         transformationGoal: extractTransformationGoal(body),
-        // Whatever this ticket doesn't structure yet (framework, activities,
-        // final activation) so the renderer can still show it as plain text.
+        framework: extractFramework(body),
+        activities: extractActivities(body),
+        // Whatever this ticket doesn't structure yet (front matter, final
+        // activation) so the renderer can still show it as plain text.
         remainder: stripStructuredParts(body)
       };
     });
@@ -250,7 +252,39 @@ Tone: professional but warm and approachable.`;
       .replace(/###\s+PURPOSE[^\n]*\n[\s\S]*?(?=\n###|$)/i, '')
       .replace(/###\s+LEARNING OUTCOMES[\s\S]*?(?=\n###|$)/i, '')
       .replace(/###\s+TRANSFORMATION GOAL[^\n]*\n[\s\S]*?(?=\n###|$)/i, '')
+      .replace(/###\s+SESSION FRAMEWORK[\s\S]*?(?=\n###|$)/i, '')
+      .replace(/###\s+ACTIVITY DESIGN[\s\S]*?(?=\n###|$)/i, '')
       .trim();
+  }
+
+  // Parses the "### SESSION FRAMEWORK" numbered stages into
+  // { n, title, bullets[] } objects. Each stage starts with "N. **Title**"
+  // (optionally followed by " — more title text" on the same line) and is
+  // followed by "-" bullets up to the next numbered stage or section.
+  function extractFramework(body) {
+    const sectionMatch = body.match(/###\s+SESSION FRAMEWORK([\s\S]*?)(?=\n###|$)/i);
+    if (!sectionMatch) return [];
+    const section = sectionMatch[1];
+
+    const stepRe = /^(\d+)\.\s+\*\*([^*]+)\*\*(.*)$/gim;
+    const matches = [...section.matchAll(stepRe)];
+
+    return matches.map((match, i) => {
+      const n = parseInt(match[1], 10);
+      const rest = match[3].trim().replace(/^—\s*/, '');
+      const title = rest ? `${match[2].trim()} — ${rest}` : match[2].trim();
+      const start = match.index + match[0].length;
+      const end = i + 1 < matches.length ? matches[i + 1].index : section.length;
+      const stepBody = section.slice(start, end);
+
+      const bullets = stepBody
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => /^-\s+/.test(l))
+        .map(l => l.replace(/^-\s+/, '').trim());
+
+      return { n, title, bullets };
+    });
   }
 
   function extractTheme(body) {
@@ -311,6 +345,46 @@ Tone: professional but warm and approachable.`;
     if (!sectionMatch) return null;
     const goal = sectionMatch[1].trim();
     return goal || null;
+  }
+
+  // Parses the "### ACTIVITY DESIGN" cards into
+  // { name, goal, type, materials, instructions[], facilitatorNotes,
+  // teachingPoint } objects. Each card starts with "**Activity: Name**" and
+  // is followed by "- **Label:** value" rows up to the next activity or the
+  // end of the section.
+  function extractActivities(body) {
+    const sectionMatch = body.match(/###\s+ACTIVITY DESIGN([\s\S]*?)(?=\n###|$)/i);
+    if (!sectionMatch) return [];
+    const section = sectionMatch[1];
+
+    const cardRe = /^\*\*Activity:\s*([^*]+)\*\*\s*$/gim;
+    const matches = [...section.matchAll(cardRe)];
+
+    return matches.map((match, i) => {
+      const name = match[1].trim();
+      const start = match.index + match[0].length;
+      const end = i + 1 < matches.length ? matches[i + 1].index : section.length;
+      const card = section.slice(start, end);
+
+      const instructionsMatch = card.match(/\*\*Instructions:\*\*([\s\S]*?)(?=\n-\s+\*\*|$)/i);
+      const instructions = instructionsMatch
+        ? instructionsMatch[1]
+            .split('\n')
+            .map(l => l.trim())
+            .filter(l => /^\d+\.\s+/.test(l))
+            .map(l => l.replace(/^\d+\.\s+/, '').trim())
+        : [];
+
+      return {
+        name,
+        goal: extractOverviewField(card, 'Goal'),
+        type: extractOverviewField(card, 'Type'),
+        materials: extractOverviewField(card, 'Materials'),
+        instructions,
+        facilitatorNotes: extractOverviewField(card, 'Facilitator Notes'),
+        teachingPoint: extractOverviewField(card, 'Teaching Point')
+      };
+    });
   }
 
   root.REFRESH_TEMPLATE_SPEC   = REFRESH_TEMPLATE_SPEC;
