@@ -447,6 +447,19 @@ document.getElementById('sidebar-toggle').addEventListener('click', () => {
   document.getElementById('sidebar').classList.toggle('collapsed');
 });
 
+// When the app is served from a host (proxy mode), the Groq key lives safely on
+// the server and the team never needs one. Repurpose the settings field into an
+// optional "team password" — only relevant if the deployer set ACCESS_PASSWORD.
+(function relabelSettingsForProxy() {
+  if (!groqClient.isProxy()) return;
+  const label = document.querySelector('#settings-drawer .settings-label');
+  const input = document.getElementById('api-key');
+  const hint  = document.querySelector('#settings-drawer .key-hint');
+  if (label) label.textContent = 'Team password';
+  if (input) input.placeholder = 'Only if your team set one';
+  if (hint)  hint.textContent = 'Optional. Leave blank unless your team uses an access password.';
+})();
+
 document.getElementById('settings-btn').addEventListener('click', function () {
   document.getElementById('settings-drawer').classList.toggle('open');
   this.classList.toggle('active');
@@ -533,7 +546,7 @@ async function handleSend() {
 
   if (!text && attachments.length === 0) return;
 
-  if (!getApiKey()) {
+  if (!groqClient.isReady()) {
     addSystemMessage('Please open ⚙ settings and enter your Groq API key.');
     document.getElementById('settings-drawer').classList.add('open');
     document.getElementById('settings-btn').classList.add('active');
@@ -1003,7 +1016,7 @@ function toggleRecording() {
         isRecording = false;
         showInlineStatus('Transcribing…', 'teal', null);
 
-        if (!getApiKey()) {
+        if (!groqClient.isReady()) {
           hideInlineStatus();
           addSystemMessage('Please enter your Groq API key to transcribe.');
           return;
@@ -1081,7 +1094,7 @@ async function handleImageFile(file) {
 }
 
 async function handleAudioFileUpload(file) {
-  if (!getApiKey()) {
+  if (!groqClient.isReady()) {
     addSystemMessage('Please enter your Groq API key in ⚙ settings to transcribe audio.');
     document.getElementById('settings-drawer').classList.add('open');
     return;

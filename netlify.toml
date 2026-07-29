@@ -1,0 +1,20 @@
+# Netlify deployment config for the Project 54 Training Manual Assistant.
+#
+# The app is static (no build step). The only server-side piece is the Groq
+# proxy function in netlify/functions/, which keeps the Groq key off the client.
+
+[build]
+  # Serve the repo root as-is; there is nothing to compile.
+  publish = "."
+  functions = "netlify/functions"
+  command = ""
+
+[functions]
+  # Node 18+ gives the function a built-in global fetch().
+  node_bundler = "esbuild"
+
+# Pretty path: the app calls /api/groq, which runs the function.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200

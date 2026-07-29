@@ -1,6 +1,13 @@
 # Local Netlify folder
 .netlify
 
+# Secrets — never commit your Groq key
+.env
+.env.*
+
+# Node deps
+node_modules/
+
 # Claude Code session state
 .claude/
 
