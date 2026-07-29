@@ -611,23 +611,7 @@ async function handleSend() {
     if (conversationHistory.length === 0) {
       conversationHistory.push({
         role: 'system',
-        content: `You are a helpful assistant for Project 54, an organisation operating across Africa.
-
-You can have normal conversations AND create professional training manuals.
-
-CONVERSATION RULES:
-- For greetings, small talk, or general questions: respond naturally and helpfully. Keep it short and friendly.
-- For requests to create a training manual, or when the user provides notes/topics/documents: produce a full, structured training manual.
-- For follow-up messages after creating a manual: refine or adjust it as requested.
-
-MANUAL FORMAT (only when creating a manual):
-- Clear title on the very first line
-- Introduction
-- Numbered sections with headings
-- Step-by-step instructions where relevant
-- Conclusion
-
-Tone: professional but warm and approachable.`
+        content: buildManualSystemPrompt()
       });
     }
 
@@ -785,102 +769,14 @@ window.downloadPDF = function (id) {
   const content = manualContents[id];
   if (!content) return;
 
+  const manualDoc = parseManual(content);
+
   const { jsPDF } = window.jspdf;
-  const doc       = new jsPDF({ unit: 'mm', format: 'a4' });
-  const pageW     = doc.internal.pageSize.getWidth();
-  const pageH     = doc.internal.pageSize.getHeight();
-  const margin    = 18;
-  const textW     = pageW - margin * 2;
-  let y           = 0;
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  renderManualPDF(doc, manualDoc, sessionImages);
 
-  function drawHeader() {
-    doc.setFillColor(53, 71, 57);
-    doc.rect(0, 0, pageW, 16, 'F');
-    doc.setFontSize(10.5);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(235, 229, 216);
-    doc.text('PROJECT 54', margin, 10.5);
-    doc.setTextColor(206, 133, 35);
-    doc.text('Training Manual', pageW - margin, 10.5, { align: 'right' });
-    doc.setTextColor(53, 71, 57);
-  }
-
-  function drawFooter() {
-    doc.setFillColor(235, 229, 216);
-    doc.rect(0, pageH - 11, pageW, 11, 'F');
-  }
-
-  function newPage() {
-    drawFooter();
-    doc.addPage();
-    drawHeader();
-    return 26;
-  }
-
-  drawHeader();
-  y = 28;
-
-  const lines = content.split('\n');
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) { y += 3.5; continue; }
-
-    const isTitle   = /^#/.test(line);
-    const isSection = /^[0-9]+\.\s/.test(line) || /^[A-Z][A-Z\s\-:]{4,}$/.test(line.trim());
-    const isBullet  = /^[-•*]\s/.test(line);
-
-    let fontSize   = 10;
-    let fontStyle  = 'normal';
-    let lineH      = 5.5;
-    let indent     = margin;
-
-    if (isTitle)   { fontSize = 15; fontStyle = 'bold'; lineH = 8; }
-    else if (isSection) { fontSize = 11; fontStyle = 'bold'; lineH = 6.5; }
-    else if (isBullet)  { indent = margin + 4; }
-
-    doc.setFontSize(fontSize);
-    doc.setFont('helvetica', fontStyle);
-
-    const cleanLine = line.replace(/^#+\s*/, '').replace(/^[-•*]\s/, isBullet ? '• ' : '');
-    const wrapped   = doc.splitTextToSize(cleanLine, isBullet ? textW - 4 : textW);
-
-    for (const wl of wrapped) {
-      if (y + lineH > pageH - 14) y = newPage();
-      doc.text(wl, indent, y);
-      y += lineH;
-    }
-
-    if (isTitle || isSection) y += 2;
-  }
-
-  // Embed images
-  for (const img of sessionImages) {
-    try {
-      y = newPage();
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(53, 71, 57);
-      doc.text(`Reference: ${img.name}`, margin, y);
-      y += 6;
-      doc.addImage(img.dataUrl, img.format || 'JPEG', margin, y, textW, Math.min(pageH - y - 20, textW * 0.65));
-    } catch (e) { console.warn('Image embed error:', e); }
-  }
-
-  drawFooter();
-
-  // Page numbers
-  const total = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= total; i++) {
-    doc.setPage(i);
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(160, 155, 145);
-    doc.text(`Page ${i} of ${total}  —  Project 54 Confidential`, pageW / 2, pageH - 4, { align: 'center' });
-  }
-
-  const titleLine  = content.split('\n').find(l => l.trim());
-  const safeTitle  = (titleLine || 'Training Manual').replace(/^#+\s*/, '').replace(/[^a-zA-Z0-9 ]/g, '').trim().substring(0, 45);
+  const safeTitle = (manualDoc.cover.title || 'Training Manual')
+    .replace(/[^a-zA-Z0-9 ]/g, '').trim().substring(0, 45);
   doc.save(`${safeTitle || 'Training Manual'}.pdf`);
 };
 

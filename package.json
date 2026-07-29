@@ -1,0 +1,8 @@
+{
+  "name": "training-manual-assistant",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test"
+  }
+}
