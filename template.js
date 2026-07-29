@@ -304,9 +304,10 @@ Tone: professional but warm and approachable.`;
   }
 
   // Parses the "### SESSION FRAMEWORK" numbered stages into
-  // { n, title, bullets[] } objects. Each stage starts with "N. **Title**"
-  // (optionally followed by " — more title text" on the same line) and is
-  // followed by "-" bullets up to the next numbered stage or section.
+  // { n, title, bullets[] } objects. The bold "**Title**" is the heading; any
+  // text after it on the same line becomes the first bullet, followed by the
+  // "-" bullets beneath it — so a step renders as a bold heading over
+  // normal-font bullets rather than one solid bold block.
   function extractFramework(body) {
     const sectionMatch = body.match(/###\s+SESSION FRAMEWORK([\s\S]*?)(?=\n###|$)/i);
     if (!sectionMatch) return [];
@@ -317,18 +318,19 @@ Tone: professional but warm and approachable.`;
 
     return matches.map((match, i) => {
       const n = parseInt(match[1], 10);
-      const rest = match[3].trim().replace(/^—\s*/, '');
-      const title = rest ? `${match[2].trim()} — ${rest}` : match[2].trim();
+      const title = match[2].trim();
+      const inline = match[3].trim().replace(/^[—-]\s*/, '').trim();
       const start = match.index + match[0].length;
       const end = i + 1 < matches.length ? matches[i + 1].index : section.length;
       const stepBody = section.slice(start, end);
 
-      const bullets = stepBody
+      const subBullets = stepBody
         .split('\n')
         .map(l => l.trim())
         .filter(l => /^-\s+/.test(l))
         .map(l => l.replace(/^-\s+/, '').trim());
 
+      const bullets = inline ? [inline, ...subBullets] : subBullets;
       return { n, title, bullets };
     });
   }

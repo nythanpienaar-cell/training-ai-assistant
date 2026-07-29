@@ -167,13 +167,13 @@ test('parseManual models a session\'s SESSION FRAMEWORK as numbered steps', () =
   assert.equal(s1.framework.length, 2);
   assert.deepEqual(s1.framework[0], {
     n: 1,
-    title: 'Welcome & Connection — open with a question that draws people in',
-    bullets: ['Ask: "What\'s a small conflict you\'ve had this week?"', 'Let two or three people answer']
+    title: 'Welcome & Connection',
+    bullets: ['open with a question that draws people in', 'Ask: "What\'s a small conflict you\'ve had this week?"', 'Let two or three people answer']
   });
   assert.deepEqual(s1.framework[1], {
     n: 2,
-    title: 'Engage — Experience First — an activity or open discussion',
-    bullets: ['Do not explain yet, let them explore']
+    title: 'Engage — Experience First',
+    bullets: ['an activity or open discussion', 'Do not explain yet, let them explore']
   });
 });
 
